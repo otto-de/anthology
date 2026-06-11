@@ -1,0 +1,8 @@
+[
+    {
+        "operation": "remove",
+        "spec": {
+            "foo-legacy": ""
+        }
+    }
+]

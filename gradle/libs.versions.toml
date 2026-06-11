@@ -1,0 +1,42 @@
+[versions]
+
+embeddedkafka = "4.2.0" 
+jackson = "2.19.4"
+jolt = "1.2.0"
+jsonpath = "2.10.0"
+junit = "3.2.19.0"
+junit-platform = "6.1.0-M1"
+kafka = "4.2.0"
+opentelemetry = "1.60.1"
+ox = "1.0.4"
+pureconfig = "0.17.10"
+rocksdb = "10.10.1"
+scala-library = "3.7.4"
+scalalogging = "3.9.5"
+scalatest = "3.2.19"
+slf4j = "2.0.17"
+
+[libraries]
+
+embeddedkafka = { module= "io.github.embeddedkafka:embedded-kafka_3", version.ref = "embeddedkafka" } 
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jolt = { module = "io.github.jolt-community.jolt:jolt-community-core", version.ref = "jolt" }
+jsonpath = { module = "com.jayway.jsonpath:json-path", version.ref = "jsonpath" }
+junit = { module = "org.scalatestplus:junit-5-13_3", version.ref = "junit" }
+junit-platform-engine = { module = "org.junit.platform:junit-platform-engine", version.ref = "junit-platform" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
+kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
+kafka-metadata = { module = "org.apache.kafka:kafka-metadata", version.ref = "kafka" }
+opentelemetry-sdk = { module = "io.opentelemetry:opentelemetry-sdk", version.ref = "opentelemetry" }
+opentelemetry-sdk-autoconfig = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure", version.ref = "opentelemetry" }
+opentelemetry-sdk-testing = { module = "io.opentelemetry:opentelemetry-sdk-testing", version.ref = "opentelemetry" }
+ox-core = { module = "com.softwaremill.ox:core_3", version.ref = "ox" }
+ox-kafka = { module = "com.softwaremill.ox:kafka_3", version.ref = "ox" }
+pureconfig-core = { module = "com.github.pureconfig:pureconfig-core_3", version.ref = "pureconfig" }
+pureconfig-generic = { module = "com.github.pureconfig:pureconfig-generic-scala3_3", version.ref = "pureconfig" }
+pureconfig-yaml = { module = "com.github.pureconfig:pureconfig-yaml_3", version.ref = "pureconfig" }
+rocksdb = { module = "org.rocksdb:rocksdbjni", version.ref = "rocksdb" }
+scala-library = { module = "org.scala-lang:scala3-library_3", version.ref = "scala-library" }
+scalalogging = { module = "com.typesafe.scala-logging:scala-logging_3", version.ref = "scalalogging" }
+scalatest = { module = "org.scalatest:scalatest_3", version.ref = "scalatest" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
