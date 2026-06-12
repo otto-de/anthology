@@ -25,10 +25,6 @@ object CredentialsLoader extends LazyLogging:
         rawMap.asScala
             .map((k, v) =>
                 val credentials = v.asScala.toMap
-                require(
-                    credentials.contains("username") && credentials.contains("password"),
-                    s"Credentials for domain '$k' must contain both 'username' and 'password' keys"
-                )
                 k -> credentials
             )
             .toMap
