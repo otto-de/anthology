@@ -1,6 +1,6 @@
 package de.otto.anthology
 
-import com.fasterxml.jackson.databind.node.TextNode
+import com.fasterxml.jackson.databind.node.ValueNode
 import com.jayway.jsonpath.Configuration
 import com.jayway.jsonpath.DocumentContext
 import com.jayway.jsonpath.JsonPath
@@ -123,8 +123,9 @@ object DomainLinkingStage extends LazyLogging:
                                                         s"${mtoConfig.to._1}/${mtoConfig.to._2}/$toAggregateId"
                                                     )
                                             val toAggregateKeyNewOpt =
-                                                Option(parsedDoc.read[TextNode](mtoConfig.toAggregatePath))
-                                                    .map(_.asText)
+                                                Option(parsedDoc.read[ValueNode](mtoConfig.toAggregatePath))
+                                                    .map(v => if v.canConvertToLong then v.longValue else v.textValue)
+                                                    .map(_.toString)
                                                     .map(AggregateId(_))
                                                     .map(toAggregateId =>
                                                         s"${mtoConfig.to._1}/${mtoConfig.to._2}/$toAggregateId"
@@ -188,8 +189,9 @@ object DomainLinkingStage extends LazyLogging:
                                                         s"${otmConfig.from._1}/${otmConfig.from._2}/$fromAggregateId"
                                                     )
                                             val fromAggregateKeyNewOpt =
-                                                Option(parsedDoc.read[TextNode](otmConfig.fromAggregatePath))
-                                                    .map(_.asText)
+                                                Option(parsedDoc.read[ValueNode](otmConfig.fromAggregatePath))
+                                                    .map(v => if v.canConvertToLong then v.longValue else v.textValue)
+                                                    .map(_.toString)
                                                     .map(AggregateId(_))
                                                     .map(fromAggregateId =>
                                                         s"${otmConfig.from._1}/${otmConfig.from._2}/$fromAggregateId"
@@ -227,6 +229,6 @@ object DomainLinkingStage extends LazyLogging:
                     catch
                         case NonFatal(ex) =>
                             logger.error(
-                                s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.getMessage}"
+                                s"Error processing record ($qaid, ${pass.record.key}, ${pass.record.value}): ${ex.getMessage}"
                             )
                             (None, pass)
