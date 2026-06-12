@@ -64,6 +64,60 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
         assert(categoriesBLK.size == 1)
         assert(categoriesBLK.contains(bookQaid.toString))
 
+    it should "compute and persist linking of one Aggregate (reference id is a number)" in:
+
+        // given
+        val stateStore = InMemoryStateStore()
+
+        val categoryId = setupCategoryIdFantasy
+        val authorId = setupAuthorIdTolkien
+
+        val bookId = setupBookIdRings
+        val bookQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookId)
+        val book = Aggregate(mapper.readTree(s"""
+            {   
+                "id": "$setupBookIdRings",
+                "categoryId": 327,
+                "authorId": "$setupAuthorIdTolkien",
+                "title": "The Lord of the Rings",
+                "isbn13": "9783608960358",
+                "price": { "amount": 90, "currency": "EUR"}
+            }
+            """))
+        val bookPass = mockedKafkaRecord(bookId.toString, book.toJson)
+
+        Flow.fromValues((Some(bookQaid, Some(book)), bookPass))
+            .persistDomainAggregates(stateStore)
+            .runToList()
+
+        val config = setupRelationsConfig()
+
+        // when
+        val src: Flow[(Option[(QualifiedAggregateId)], Passthrough)] =
+            Flow.fromValues((Some(bookQaid), bookPass))
+
+        val out: List[(Option[(QualifiedAggregateId)], Passthrough)] =
+            src.linkDomainAggregates(config, stateStore).runToList()
+
+        // then
+        assert(out == List((Some(bookQaid), bookPass)))
+
+        assert(stateStore.store.size == 4)
+
+        val bookLNK = stateStore.getStringSet(s"${StateStoreSection.LNK}/$bookQaid")
+        assert(bookLNK.size == 2)
+        assert(bookLNK.contains(s"$authorsDomain/$authorAggregate/$authorId"))
+        assert(bookLNK.contains(s"$categoriesDomain/$categoryAggregate/$categoryId"))
+
+        val authorBLK = stateStore.getStringSet(s"${StateStoreSection.BLK}/$authorsDomain/$authorAggregate/$authorId")
+        assert(authorBLK.size == 1)
+        assert(authorBLK.contains(bookQaid.toString))
+
+        val categoriesBLK =
+            stateStore.getStringSet(s"${StateStoreSection.BLK}/$categoriesDomain/$categoryAggregate/$categoryId")
+        assert(categoriesBLK.size == 1)
+        assert(categoriesBLK.contains(bookQaid.toString))
+
     it should "compute and persist linking of Aggregate deletions" in:
 
         // given
