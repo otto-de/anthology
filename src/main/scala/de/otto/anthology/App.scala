@@ -59,21 +59,15 @@ object App extends OxApp.Simple, LazyLogging:
                             .map: dConfig =>
                                 val cluster = clusterSettings(dConfig.kafka.cluster)
                                 val creds = cluster.credentials
-                                val consumerSettings: ConsumerSettings[AggregateId, Option[Aggregate]] =
+                                val baseSettings: ConsumerSettings[AggregateId, Option[Aggregate]] =
                                     ConsumerSettings
                                         .default(dConfig.kafka.consumerGroup)
                                         .bootstrapServers(cluster.config.bootstrapServers.split(",").map(_.trim)*)
                                         .keyDeserializer(AggregateIdDeserializer)
                                         .valueDeserializer(AggregateDeserializer)
                                         .autoOffsetReset(AutoOffsetReset.Earliest)
-                                        .property("security.protocol", "SASL_SSL")
-                                        .property("sasl.mechanism", "PLAIN")
-                                        .property(
-                                            "sasl.jaas.config",
-                                            s"""org.apache.kafka.common.security.plain.PlainLoginModule required username="${creds(
-                                                    "username"
-                                                )}" password="${creds("password")}";"""
-                                        )
+                                val consumerSettings: ConsumerSettings[AggregateId, Option[Aggregate]] =
+                                    creds.foldLeft(baseSettings)((s, k2v) => s.property(k2v._1, k2v._2))
                                 // for now, we go with consumer name == domain name
                                 ConsumerName(dConfig.name.toString) -> consumerSettings.toThreadSafeConsumerWrapper
                             .toMap

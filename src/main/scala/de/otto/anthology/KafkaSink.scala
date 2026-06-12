@@ -32,18 +32,9 @@ object KafkaSink extends LazyLogging:
                     .bootstrapServers(settings.clusterSettings.config.bootstrapServers.split(",").map(_.trim)*)
                     .keySerializer(AggregateIdSerializer)
                     .valueSerializer(AggregateSerializer)
-            val producerSettings =
+            val producerSettings: ProducerSettings[AggregateId, Aggregate] =
                 if credentials.isEmpty then baseSettings
-                else
-                    baseSettings
-                        .property("security.protocol", "SASL_SSL")
-                        .property("sasl.mechanism", "PLAIN")
-                        .property(
-                            "sasl.jaas.config",
-                            s"""org.apache.kafka.common.security.plain.PlainLoginModule required username="${credentials(
-                                    "username"
-                                )}" password="${credentials("password")}";"""
-                        )
+                else credentials.foldLeft(baseSettings)((s, k2v) => s.property(k2v._1, k2v._2))
 
             supervised:
                 // setup channel for publishing

@@ -20,14 +20,6 @@ class CredentialsLoaderTest extends AnyFlatSpec, Matchers:
     it should "throw on invalid JSON" in:
         an[Exception] should be thrownBy CredentialsLoader.fromJson("not-json")
 
-    it should "throw when username key is missing" in:
-        val json = """{"cluster-a":{"password":"pass1"}}"""
-        an[IllegalArgumentException] should be thrownBy CredentialsLoader.fromJson(json)
-
-    it should "throw when password key is missing" in:
-        val json = """{"cluster-a":{"username":"user1"}}"""
-        an[IllegalArgumentException] should be thrownBy CredentialsLoader.fromJson(json)
-
     it should "throw on missing ANTHOLOGY_CREDENTIALS env var" in:
         // Only run this assertion when the env var is genuinely absent
         assume(!sys.env.contains("ANTHOLOGY_CREDENTIALS"))
