@@ -24,7 +24,7 @@ object DomainSource extends LazyLogging:
             val aggregateConfigOpt = recogniseAggregateConfig(aggregateOpt, config.aggregates)
             aggregateConfigOpt match
                 case None =>
-                    logger.error(
+                    logger.debug(
                         s"Unable to recognise aggregate configuration for record (${pass.record.key}, ${pass.record.value})"
                     )
                     (None, pass)
