@@ -58,7 +58,7 @@ tasks.withType(ScalaCompile) {
 }
 
 application {
-    mainClass = 'anthology.App'
+    mainClass = 'de.otto.anthology.App'
 }
 
 test {
