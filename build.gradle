@@ -6,6 +6,16 @@ plugins {
     id 'application'
 
     id 'io.github.cosmicsilence.scalafix' version '0.2.6'
+
+    // IntelliJ IDEA plugin to configure source/javadoc downloads
+    id 'idea'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
 }
 
 repositories {
@@ -26,6 +36,8 @@ dependencies {
     implementation libs.rocksdb
     implementation libs.scala.library
     implementation libs.scalalogging
+    implementation libs.tapir.core
+    implementation libs.tapir.netty.server.sync
 
     testImplementation libs.embeddedkafka
     testImplementation libs.junit.platform.launcher
@@ -33,6 +45,7 @@ dependencies {
     testImplementation libs.kafka.metadata
     testImplementation libs.opentelemetry.sdk.testing
     testImplementation libs.scalatest
+    testImplementation libs.tapir.sttp.stub4.server
 
     testRuntimeOnly libs.junit
     testRuntimeOnly libs.junit.platform.engine
