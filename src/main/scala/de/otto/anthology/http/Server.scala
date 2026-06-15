@@ -3,7 +3,7 @@ package de.otto.anthology.http
 import de.otto.anthology.http.routes.Health
 import sttp.tapir.server.netty.sync.NettySyncServer
 
-case class Server(routes: List[Route]):
+class Server(routes: List[Route]):
     private[http] lazy val underlying = NettySyncServer()
         .host("0.0.0.0")
         .port(8080)
@@ -14,4 +14,4 @@ case class Server(routes: List[Route]):
             .startAndWait()
 
 object Server:
-    def apply(): Server = Server(List(Health.route))
+    def apply(): Server = new Server(List(Health.route))
