@@ -35,7 +35,7 @@ object App extends OxApp.Simple, LazyLogging:
         retry(Schedule.fixedInterval(1.minute)):
             supervised:
                 try
-                    logger.info("Starting Anthology...")
+                    logger.info("Starting Anthology (v.0.0.6)...")
 
                     // Setup infra...
                     val config: AnthologyConfig = AnthologyConfigFactory()
