@@ -48,6 +48,7 @@ object DomainLinkingStage extends LazyLogging:
 
                 case (Some(qaid), pass) =>
                     try
+                        logger.info(s"Fetching domain aggregate from state store (${StateStoreSection.DOM}/$qaid)...")
                         val aggregateOpt: Option[Aggregate] =
                             stateStore
                                 .getJson(s"${StateStoreSection.DOM}/$qaid")
@@ -59,176 +60,198 @@ object DomainLinkingStage extends LazyLogging:
                                 // when aggregates on both ends are deleted
                                 // TODO only when "many"-side was deleted?
 
-                                val linkKey = s"${StateStoreSection.LNK}/$qaid"
-                                val linkValues =
-                                    stateStore
-                                        .getStringSet(linkKey)
-                                        .filterPar(parallelism.toInt)(v =>
-                                            stateStore.get(s"${StateStoreSection.DOM}/$v").isEmpty
-                                        )
+                                logger.info(s"Domain aggregate $qaid was deleted. Try processing deletion now...")
 
-                                // Delete backlinks ending here
-                                linkValues.foreachPar(parallelism.toInt): value =>
-                                    val _backLinkKey = s"${StateStoreSection.BLK}/$value"
-                                    stateStore.removeStringFromSet(_backLinkKey, qaid.toString)
+                                try
+                                    val linkKey = s"${StateStoreSection.LNK}/$qaid"
+                                    val linkValues =
+                                        stateStore
+                                            .getStringSet(linkKey)
+                                            .filterPar(parallelism.toInt)(v =>
+                                                stateStore.get(s"${StateStoreSection.DOM}/$v").isEmpty
+                                            )
 
-                                // Delete links starting here
-                                stateStore.removeStringsFromSet(linkKey, linkValues)
+                                    // Delete backlinks ending here
+                                    linkValues.foreachPar(parallelism.toInt): value =>
+                                        val _backLinkKey = s"${StateStoreSection.BLK}/$value"
+                                        stateStore.removeStringFromSet(_backLinkKey, qaid.toString)
 
-                                val backLinkKey = s"${StateStoreSection.BLK}/$qaid"
-                                val backLinkValues =
-                                    stateStore
-                                        .getStringSet(backLinkKey)
-                                        .filterPar(parallelism.toInt)(v =>
-                                            stateStore.get(s"${StateStoreSection.DOM}/$v").isEmpty
-                                        )
+                                    // Delete links starting here
+                                    stateStore.removeStringsFromSet(linkKey, linkValues)
 
-                                // Delete links ending here
-                                backLinkValues.foreachPar(parallelism.toInt): value =>
-                                    val _linkKey = s"${StateStoreSection.LNK}/$value"
-                                    stateStore.removeStringFromSet(_linkKey, qaid.toString)
+                                    val backLinkKey = s"${StateStoreSection.BLK}/$qaid"
+                                    val backLinkValues =
+                                        stateStore
+                                            .getStringSet(backLinkKey)
+                                            .filterPar(parallelism.toInt)(v =>
+                                                stateStore.get(s"${StateStoreSection.DOM}/$v").isEmpty
+                                            )
 
-                                // Delete backlinks starting here
-                                stateStore.removeStringsFromSet(backLinkKey, backLinkValues)
+                                    // Delete links ending here
+                                    backLinkValues.foreachPar(parallelism.toInt): value =>
+                                        val _linkKey = s"${StateStoreSection.LNK}/$value"
+                                        stateStore.removeStringFromSet(_linkKey, qaid.toString)
 
-                                (Some(qaid), pass)
+                                    // Delete backlinks starting here
+                                    stateStore.removeStringsFromSet(backLinkKey, backLinkValues)
+
+                                    (Some(qaid), pass)
+                                catch
+                                    case NonFatal(ex) =>
+                                        logger.error(s"Error processing deletion ($qaid): ${ex.getMessage}")
+                                        (None, pass)
 
                             case Some(aggregate) =>
 
-                                val parsedDoc: DocumentContext = jsonPathContext.parse(aggregate.toJson)
+                                logger.info(
+                                    s"Domain aggregate $qaid found. Try setting links to other domain aggregates now..."
+                                )
 
-                                // (a) compute and update many-to-one relations starting here
-                                // (a.1) links
-                                val linkKey = s"${StateStoreSection.LNK}/$qaid"
+                                try
 
-                                val linkValuesOld: Map[(DomainName, AggregateName), AggregateId] =
-                                    stateStore
-                                        .getStringSet(linkKey)
-                                        .map: entry =>
-                                            val splittedEntry = entry.split("/")
-                                            (
-                                                DomainName(splittedEntry(0)),
-                                                AggregateName(splittedEntry(1))
-                                            ) -> AggregateId(splittedEntry(2))
-                                        .toMap
+                                    val parsedDoc: DocumentContext = jsonPathContext.parse(aggregate.toJson)
 
-                                val (linkRemovalOpts: Set[Option[String]], linkAdditionOpts: Set[Option[String]]) =
-                                    config.manyToOneRelationsStartingFrom
-                                        .getOrElse(qaid.qualifier, Set.empty)
-                                        .mapPar(parallelism.toInt): mtoConfig =>
-                                            val toAggregateKeyOldOpt =
-                                                linkValuesOld
-                                                    .get(mtoConfig.to)
-                                                    .map(toAggregateId =>
-                                                        s"${mtoConfig.to._1}/${mtoConfig.to._2}/$toAggregateId"
-                                                    )
-                                            val toAggregateKeyNewOpt =
-                                                Option(parsedDoc.read[ValueNode](mtoConfig.toAggregatePath))
-                                                    .map(v => if v.canConvertToLong then v.longValue else v.textValue)
-                                                    .map(_.toString)
-                                                    .map(AggregateId(_))
-                                                    .map(toAggregateId =>
-                                                        s"${mtoConfig.to._1}/${mtoConfig.to._2}/$toAggregateId"
-                                                    )
-                                            (toAggregateKeyOldOpt, toAggregateKeyNewOpt) match
-                                                case (None, Some(aggN)) =>
-                                                    // add aggN
-                                                    (None, Some(aggN))
-                                                case (Some(aggO), None) =>
-                                                    // remove aggO
-                                                    (Some(aggO), None)
-                                                case (Some(aggO), Some(aggN)) if aggO != aggN =>
-                                                    // remove aggO, add aggN
-                                                    (Some(aggO), Some(aggN))
-                                                case _ =>
-                                                    // do nothing
-                                                    (None, None)
-                                        .unzip
+                                    // (a) compute and update many-to-one relations starting here
+                                    // (a.1) links
+                                    val linkKey = s"${StateStoreSection.LNK}/$qaid"
 
-                                val (linkRemovals: Set[String], linkAdditions: Set[String]) =
-                                    (linkRemovalOpts.flatten, linkAdditionOpts.flatten)
+                                    val linkValuesOld: Map[(DomainName, AggregateName), AggregateId] =
+                                        stateStore
+                                            .getStringSet(linkKey)
+                                            .map: entry =>
+                                                val splittedEntry = entry.split("/")
+                                                (
+                                                    DomainName(splittedEntry(0)),
+                                                    AggregateName(splittedEntry(1))
+                                                ) -> AggregateId(splittedEntry(2))
+                                            .toMap
 
-                                stateStore.removeStringsFromSet(linkKey, linkRemovals)
+                                    val (linkRemovalOpts: Set[Option[String]], linkAdditionOpts: Set[Option[String]]) =
+                                        config.manyToOneRelationsStartingFrom
+                                            .getOrElse(qaid.qualifier, Set.empty)
+                                            .mapPar(parallelism.toInt): mtoConfig =>
+                                                val toAggregateKeyOldOpt =
+                                                    linkValuesOld
+                                                        .get(mtoConfig.to)
+                                                        .map(toAggregateId =>
+                                                            s"${mtoConfig.to._1}/${mtoConfig.to._2}/$toAggregateId"
+                                                        )
+                                                val toAggregateKeyNewOpt =
+                                                    Option(parsedDoc.read[ValueNode](mtoConfig.toAggregatePath))
+                                                        .map(v =>
+                                                            if v.canConvertToLong then v.longValue else v.textValue
+                                                        )
+                                                        .map(_.toString)
+                                                        .map(AggregateId(_))
+                                                        .map(toAggregateId =>
+                                                            s"${mtoConfig.to._1}/${mtoConfig.to._2}/$toAggregateId"
+                                                        )
+                                                (toAggregateKeyOldOpt, toAggregateKeyNewOpt) match
+                                                    case (None, Some(aggN)) =>
+                                                        // add aggN
+                                                        (None, Some(aggN))
+                                                    case (Some(aggO), None) =>
+                                                        // remove aggO
+                                                        (Some(aggO), None)
+                                                    case (Some(aggO), Some(aggN)) if aggO != aggN =>
+                                                        // remove aggO, add aggN
+                                                        (Some(aggO), Some(aggN))
+                                                    case _ =>
+                                                        // do nothing
+                                                        (None, None)
+                                            .unzip
 
-                                stateStore.addStringsToSet(linkKey, linkAdditions)
+                                    val (linkRemovals: Set[String], linkAdditions: Set[String]) =
+                                        (linkRemovalOpts.flatten, linkAdditionOpts.flatten)
 
-                                // (a.2) back links
-                                linkAdditions.foreachPar(parallelism.toInt): value =>
-                                    val _backLinkKey = s"${StateStoreSection.BLK}/$value"
-                                    stateStore.addStringToSet(_backLinkKey, qaid.toString)
-                                linkRemovals.foreachPar(parallelism.toInt): value =>
-                                    val _backLinkKey = s"${StateStoreSection.BLK}/$value"
-                                    stateStore.removeStringFromSet(_backLinkKey, qaid.toString)
+                                    stateStore.removeStringsFromSet(linkKey, linkRemovals)
 
-                                // (b) compute and update one-to-many relations ending here
-                                // (b.1) back links
-                                val backLinkKey = s"${StateStoreSection.BLK}/$qaid"
+                                    stateStore.addStringsToSet(linkKey, linkAdditions)
 
-                                val backLinkValuesOld: Map[(DomainName, AggregateName), AggregateId] =
-                                    stateStore
-                                        .getStringSet(backLinkKey)
-                                        .map: entry =>
-                                            val splittedEntry = entry.split("/")
-                                            (
-                                                DomainName(splittedEntry(0)),
-                                                AggregateName(splittedEntry(1))
-                                            ) -> AggregateId(splittedEntry(2))
-                                        .toMap
+                                    // (a.2) back links
+                                    linkAdditions.foreachPar(parallelism.toInt): value =>
+                                        val _backLinkKey = s"${StateStoreSection.BLK}/$value"
+                                        stateStore.addStringToSet(_backLinkKey, qaid.toString)
+                                    linkRemovals.foreachPar(parallelism.toInt): value =>
+                                        val _backLinkKey = s"${StateStoreSection.BLK}/$value"
+                                        stateStore.removeStringFromSet(_backLinkKey, qaid.toString)
 
-                                val (
-                                    backLinkRemovalOpts: Set[Option[String]],
-                                    backLinkAdditionOpts: Set[Option[String]]
-                                ) =
-                                    config.oneToManyRelationsLeadingTo
-                                        .getOrElse(qaid.qualifier, Set.empty)
-                                        .mapPar(parallelism.toInt): otmConfig =>
-                                            val fromAggregateKeyOldOpt =
-                                                backLinkValuesOld
-                                                    .get(otmConfig.from)
-                                                    .map(fromAggregateId =>
-                                                        s"${otmConfig.from._1}/${otmConfig.from._2}/$fromAggregateId"
-                                                    )
-                                            val fromAggregateKeyNewOpt =
-                                                Option(parsedDoc.read[ValueNode](otmConfig.fromAggregatePath))
-                                                    .map(v => if v.canConvertToLong then v.longValue else v.textValue)
-                                                    .map(_.toString)
-                                                    .map(AggregateId(_))
-                                                    .map(fromAggregateId =>
-                                                        s"${otmConfig.from._1}/${otmConfig.from._2}/$fromAggregateId"
-                                                    )
-                                            (fromAggregateKeyOldOpt, fromAggregateKeyNewOpt) match
-                                                case (None, Some(aggN)) =>
-                                                    // add aggN
-                                                    (None, Some(aggN))
-                                                case (Some(aggO), None) =>
-                                                    // remove aggO
-                                                    (Some(aggO), None)
-                                                case (Some(aggO), Some(aggN)) if aggO != aggN =>
-                                                    // remove aggO, add aggN
-                                                    (Some(aggO), Some(aggN))
-                                                case _ =>
-                                                    // do nothing
-                                                    (None, None)
-                                        .unzip
+                                    // (b) compute and update one-to-many relations ending here
+                                    // (b.1) back links
+                                    val backLinkKey = s"${StateStoreSection.BLK}/$qaid"
 
-                                val (backLinkRemovals: Set[String], backLinkAdditions: Set[String]) =
-                                    (backLinkRemovalOpts.flatten, backLinkAdditionOpts.flatten)
+                                    val backLinkValuesOld: Map[(DomainName, AggregateName), AggregateId] =
+                                        stateStore
+                                            .getStringSet(backLinkKey)
+                                            .map: entry =>
+                                                val splittedEntry = entry.split("/")
+                                                (
+                                                    DomainName(splittedEntry(0)),
+                                                    AggregateName(splittedEntry(1))
+                                                ) -> AggregateId(splittedEntry(2))
+                                            .toMap
 
-                                stateStore.removeStringsFromSet(backLinkKey, backLinkRemovals)
-                                stateStore.addStringsToSet(backLinkKey, backLinkAdditions)
+                                    val (
+                                        backLinkRemovalOpts: Set[Option[String]],
+                                        backLinkAdditionOpts: Set[Option[String]]
+                                    ) =
+                                        config.oneToManyRelationsLeadingTo
+                                            .getOrElse(qaid.qualifier, Set.empty)
+                                            .mapPar(parallelism.toInt): otmConfig =>
+                                                val fromAggregateKeyOldOpt =
+                                                    backLinkValuesOld
+                                                        .get(otmConfig.from)
+                                                        .map(fromAggregateId =>
+                                                            s"${otmConfig.from._1}/${otmConfig.from._2}/$fromAggregateId"
+                                                        )
+                                                val fromAggregateKeyNewOpt =
+                                                    Option(parsedDoc.read[ValueNode](otmConfig.fromAggregatePath))
+                                                        .map(v =>
+                                                            if v.canConvertToLong then v.longValue else v.textValue
+                                                        )
+                                                        .map(_.toString)
+                                                        .map(AggregateId(_))
+                                                        .map(fromAggregateId =>
+                                                            s"${otmConfig.from._1}/${otmConfig.from._2}/$fromAggregateId"
+                                                        )
+                                                (fromAggregateKeyOldOpt, fromAggregateKeyNewOpt) match
+                                                    case (None, Some(aggN)) =>
+                                                        // add aggN
+                                                        (None, Some(aggN))
+                                                    case (Some(aggO), None) =>
+                                                        // remove aggO
+                                                        (Some(aggO), None)
+                                                    case (Some(aggO), Some(aggN)) if aggO != aggN =>
+                                                        // remove aggO, add aggN
+                                                        (Some(aggO), Some(aggN))
+                                                    case _ =>
+                                                        // do nothing
+                                                        (None, None)
+                                            .unzip
 
-                                // (b.2) links
-                                backLinkAdditions.foreachPar(parallelism.toInt): value =>
-                                    val _linkKey = s"${StateStoreSection.LNK}/$value"
-                                    stateStore.addStringToSet(_linkKey, qaid.toString)
-                                backLinkRemovals.foreachPar(parallelism.toInt): value =>
-                                    val _linkKey = s"${StateStoreSection.LNK}/$value"
-                                    stateStore.removeStringFromSet(_linkKey, qaid.toString)
+                                    val (backLinkRemovals: Set[String], backLinkAdditions: Set[String]) =
+                                        (backLinkRemovalOpts.flatten, backLinkAdditionOpts.flatten)
 
-                                (Some(qaid), pass)
+                                    stateStore.removeStringsFromSet(backLinkKey, backLinkRemovals)
+                                    stateStore.addStringsToSet(backLinkKey, backLinkAdditions)
+
+                                    // (b.2) links
+                                    backLinkAdditions.foreachPar(parallelism.toInt): value =>
+                                        val _linkKey = s"${StateStoreSection.LNK}/$value"
+                                        stateStore.addStringToSet(_linkKey, qaid.toString)
+                                    backLinkRemovals.foreachPar(parallelism.toInt): value =>
+                                        val _linkKey = s"${StateStoreSection.LNK}/$value"
+                                        stateStore.removeStringFromSet(_linkKey, qaid.toString)
+
+                                    (Some(qaid), pass)
+                                catch
+                                    case NonFatal(ex) =>
+                                        logger.error(s"Error setting links ($qaid, $aggregate): ${ex.getMessage}")
+                                        (None, pass)
+
                     catch
                         case NonFatal(ex) =>
                             logger.error(
-                                s"Error processing record ($qaid, ${pass.record.key}, ${pass.record.value}): ${ex.getMessage}"
+                                s"Error processing record (qualifiedId=$qaid, recordKey=${pass.record.key}, recordValue=${pass.record.value}): ${ex.getMessage}"
                             )
                             (None, pass)
