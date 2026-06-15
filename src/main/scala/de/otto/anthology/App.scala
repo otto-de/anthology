@@ -8,6 +8,7 @@ import de.otto.anthology.config.CredentialsLoader
 import de.otto.anthology.config.DomainConfigs
 import de.otto.anthology.config.DomainRelationConfigs
 import de.otto.anthology.config.KafkaClusterSettings
+import de.otto.anthology.http.Server
 import de.otto.anthology.kafka.AggregateDeserializer
 import de.otto.anthology.kafka.AggregateIdDeserializer
 import de.otto.anthology.kafka.ClusterName
@@ -18,6 +19,7 @@ import de.otto.anthology.statestore.RocksDBStateStore
 import de.otto.anthology.statestore.StateStore
 import ox.Ox
 import ox.OxApp
+import ox.fork
 import ox.kafka.ConsumerSettings
 import ox.kafka.ConsumerSettings.AutoOffsetReset
 import ox.resilience.retry
@@ -51,7 +53,7 @@ object App extends OxApp.Simple, LazyLogging:
                     logger.info("Domain and codomain settings initialized successfully")
 
                     val store: StateStore =
-                        useInScope(aquireRocksDbStateStore(config.rocksDB))(releaseRocksDbStateStore)
+                        useInScope(acquireRocksDbStateStore(config.rocksDB))(releaseRocksDbStateStore)
                     logger.info("State store initialized successfully")
 
                     val kafkaConsumers: ConsumerMap =
@@ -75,22 +77,29 @@ object App extends OxApp.Simple, LazyLogging:
 
                     // ...and run application
                     logger.info(s"Starting stream with ${config.parallelism}x parallelism...")
-                    AppWorkflow.run(
-                        domainConfigs,
-                        domainRelationConfigs,
-                        codomainConfig,
-                        store,
-                        clusterSettings,
-                        kafkaConsumers,
-                        config.parallelism
-                    )
+
+                    val serverF = fork:
+                        Server().start()
+
+                    val appF = fork:
+                        AppWorkflow.run(
+                            domainConfigs,
+                            domainRelationConfigs,
+                            codomainConfig,
+                            store,
+                            clusterSettings,
+                            kafkaConsumers,
+                            config.parallelism
+                        )
+
+                    (serverF.join(), appF.join())
                 catch
                     case NonFatal(e) =>
                         logger.error("Anthology failed with an exception. Will retry...", e)
                         throw e
 
-    private def aquireRocksDbStateStore(dbConfig: RocksDBConfig): RocksDBStateStore =
-        logger.info("Aquiring RocksDBStateStore...")
+    private def acquireRocksDbStateStore(dbConfig: RocksDBConfig): RocksDBStateStore =
+        logger.info("Acquiring RocksDBStateStore...")
         RocksDBStateStore(dbConfig)
 
     private def releaseRocksDbStateStore(db: RocksDBStateStore): Unit =

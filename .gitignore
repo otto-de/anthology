@@ -12,3 +12,8 @@ build
 
 # Runtime secrets — never commit
 credentials.env
+
+# Ignore IntelliJ IDEA project files
+anthology.iml
+anthology.ipr
+anthology.iws
