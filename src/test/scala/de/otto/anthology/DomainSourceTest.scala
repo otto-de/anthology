@@ -161,3 +161,58 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
                     _._1 == QualifiedAggregateId(DomainName("domain-x"), AggregateName("Agg-A"), AggregateId("3"))
                 )
             )
+
+    it should "recognise one aggregate config and ignore the rest" in:
+        // given
+        val cluster = ClusterName("cluster-x")
+        val topic = TopicName("topic-domain-x")
+        val group = "group"
+
+        publishToKafka(topic.toString, "1", """{ "id": "1", "foo": "barA" }""")
+        publishToKafka(topic.toString, "2", """{ "id": "2", "foo": "barB" }""")
+        publishToKafka(topic.toString, "3", """{ "id": "3", "foo": "barC" }""")
+
+        // when
+        val sourceConfig = KafkaSourceConfig(cluster, topic, group)
+
+        val aggregateConfigA =
+            AggregateConfig(AggregateName("Agg-A"), Some(JsonPath.compile("$[?(@.foo == 'barA')]")), None, None, None)
+
+        val domainConfig =
+            DomainConfig(
+                DomainName("domain-x"),
+                sourceConfig,
+                Seq(aggregateConfigA)
+            )
+
+        supervised:
+            val consumerSettings: ConsumerSettings[AggregateId, Option[Aggregate]] =
+                ConsumerSettings
+                    .default(domainConfig.kafka.consumerGroup)
+                    .bootstrapServers(bootstrapServer.split(",").map(_.trim)*)
+                    .keyDeserializer(AggregateIdDeserializer)
+                    .valueDeserializer(AggregateDeserializer)
+                    .autoOffsetReset(AutoOffsetReset.Earliest)
+            val consumer = consumerSettings.toThreadSafeConsumerWrapper
+            val sourceSettings = KafkaSourceSettings(sourceConfig, ConsumerName(domainConfig.name.toString), consumer)
+            val domainSource = DomainSource(domainConfig, sourceSettings)
+
+            val channel = domainSource.runToChannel()
+
+            // then
+            val result1: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            assert(
+                result1._1.exists(
+                    _._1 == QualifiedAggregateId(DomainName("domain-x"), AggregateName("Agg-A"), AggregateId("1"))
+                )
+            )
+
+            val result2: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            assert(
+                result2._1.isEmpty
+            )
+
+            val result3: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            assert(
+                result3._1.isEmpty
+            )
