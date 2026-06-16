@@ -7,6 +7,7 @@ import de.otto.anthology.AggregateId
 import de.otto.anthology.JsonSupport.mapper
 import de.otto.anthology.Parallelism
 import de.otto.anthology.kafka.Passthrough
+import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import io.joltcommunity.jolt.Chainr
 import ox.flow.Flow
 import pureconfig.ConfigReader
@@ -50,7 +51,7 @@ object CodomainTransformationStage extends LazyLogging:
                         catch
                             case NonFatal(ex) =>
                                 logger.error(
-                                    s"Error transforming ($codomainAggregateId, $codomainAggregateOpt): ${ex.getMessage}"
+                                    s"Error transforming ($codomainAggregateId, $codomainAggregateOpt): ${ex.stackTraceAsString}"
                                 )
                                 (codomainAggregateId, None)
                 (payloadsOut, passthroughs)

@@ -6,6 +6,7 @@ import de.otto.anthology.AggregateId
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
+import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import ox.flow.Flow
 import ox.mapPar
 
@@ -35,7 +36,7 @@ object CodomainPersistenceStage extends LazyLogging:
                     catch
                         case NonFatal(ex) =>
                             logger.error(
-                                s"Error persisting codomain aggregate (${aggId2agg._1}, ${aggId2agg._2}): ${ex.getMessage}"
+                                s"Error persisting codomain aggregate (${aggId2agg._1}, ${aggId2agg._2}): ${ex.stackTraceAsString}"
                             )
                             (aggId2agg._1, None)
                 (payloadsOut, passthroughs)

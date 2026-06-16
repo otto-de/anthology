@@ -10,6 +10,7 @@ import de.otto.anthology.QualifiedAggregateId
 import de.otto.anthology.config.DomainConfigs
 import de.otto.anthology.config.jsonPathConfigReader
 import de.otto.anthology.kafka.Passthrough
+import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import ox.flow.Flow
 import pureconfig.ConfigReader
 
@@ -43,7 +44,7 @@ object DomainFilteringStage extends LazyLogging:
                     catch
                         case NonFatal(ex) =>
                             logger.error(
-                                s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.getMessage}"
+                                s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
                             )
                             (None, pass)
 

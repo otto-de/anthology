@@ -7,6 +7,7 @@ import de.otto.anthology.QualifiedAggregateId
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
+import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import ox.flow.Flow
 
 import scala.util.control.NonFatal
@@ -35,7 +36,7 @@ object DomainPersistenceStage extends LazyLogging:
                     catch
                         case NonFatal(ex) =>
                             logger.error(
-                                s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.getMessage}"
+                                s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
                             )
                             (None, pass)
 
