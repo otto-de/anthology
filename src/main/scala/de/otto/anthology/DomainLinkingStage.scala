@@ -18,6 +18,7 @@ import de.otto.anthology.config.DomainRelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
+import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import ox.filterPar
 import ox.flow.Flow
 import ox.foreachPar
@@ -98,7 +99,7 @@ object DomainLinkingStage extends LazyLogging:
                                     (Some(qaid), pass)
                                 catch
                                     case NonFatal(ex) =>
-                                        logger.error(s"Error processing deletion ($qaid): ${ex.getMessage}")
+                                        logger.error(s"Error processing deletion ($qaid): ${ex.stackTraceAsString}")
                                         (None, pass)
 
                             case Some(aggregate) =>
@@ -246,12 +247,14 @@ object DomainLinkingStage extends LazyLogging:
                                     (Some(qaid), pass)
                                 catch
                                     case NonFatal(ex) =>
-                                        logger.error(s"Error setting links ($qaid, $aggregate): ${ex.getMessage}")
+                                        logger.error(
+                                            s"Error setting links ($qaid, $aggregate): ${ex.stackTraceAsString}"
+                                        )
                                         (None, pass)
 
                     catch
                         case NonFatal(ex) =>
                             logger.error(
-                                s"Error processing record (qualifiedId=$qaid, recordKey=${pass.record.key}, recordValue=${pass.record.value}): ${ex.getMessage}"
+                                s"Error processing record (qualifiedId=$qaid, recordKey=${pass.record.key}, recordValue=${pass.record.value}): ${ex.stackTraceAsString}"
                             )
                             (None, pass)

@@ -7,6 +7,7 @@ import de.otto.anthology.AggregateId
 import de.otto.anthology.Parallelism
 import de.otto.anthology.config.jsonPathConfigReader
 import de.otto.anthology.kafka.Passthrough
+import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import ox.flow.Flow
 import pureconfig.ConfigReader
 
@@ -27,7 +28,7 @@ object CodomainFilteringStage extends LazyLogging:
                         catch
                             case NonFatal(ex) =>
                                 logger.error(
-                                    s"Error filtering ($codomainAggregateId, $codomainAggregate): ${ex.getMessage}"
+                                    s"Error filtering ($codomainAggregateId, $codomainAggregate): ${ex.stackTraceAsString}"
                                 )
                                 (codomainAggregateId, None)
                 (payloadsOut, passthroughs)

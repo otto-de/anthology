@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.Aggregate
 import de.otto.anthology.AggregateId
 import de.otto.anthology.kafka.Passthrough
+import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.apache.kafka.common.header.Headers
 import org.apache.kafka.common.header.internals.RecordHeaders
 import ox.flow.Flow
@@ -16,7 +17,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
 import java.util.UUID
 import scala.util.control.NonFatal
-
 object HeaderPropagationStage extends LazyLogging:
     extension (in: Flow[(Seq[(AggregateId, Option[Aggregate])], Seq[Passthrough])])
         def propagateHeaders(
@@ -47,7 +47,9 @@ object HeaderPropagationStage extends LazyLogging:
                                                 )
                                     catch
                                         case NonFatal(ex) =>
-                                            logger.error(s"Error setting header for config $config: ${ex.getMessage}")
+                                            logger.error(
+                                                s"Error setting header for config $config: ${ex.stackTraceAsString}"
+                                            )
                                 (aggId, aggOpt, Some(headers))
                         (payloadsOut, passthroughs)
                     case None =>
