@@ -49,7 +49,6 @@ object DomainLinkingStage extends LazyLogging:
 
                 case (Some(qaid), pass) =>
                     try
-                        logger.info(s"Fetching domain aggregate from state store (${StateStoreSection.DOM}/$qaid)...")
                         val aggregateOpt: Option[Aggregate] =
                             stateStore
                                 .getJson(s"${StateStoreSection.DOM}/$qaid")
@@ -60,8 +59,6 @@ object DomainLinkingStage extends LazyLogging:
                                 // Domain aggregate was deleted, so delete all associated links & backlinks
                                 // when aggregates on both ends are deleted
                                 // TODO only when "many"-side was deleted?
-
-                                logger.info(s"Domain aggregate $qaid was deleted. Try processing deletion now...")
 
                                 try
                                     val linkKey = s"${StateStoreSection.LNK}/$qaid"
@@ -103,10 +100,6 @@ object DomainLinkingStage extends LazyLogging:
                                         (None, pass)
 
                             case Some(aggregate) =>
-
-                                logger.info(
-                                    s"Domain aggregate $qaid found. Try setting links to other domain aggregates now..."
-                                )
 
                                 try
 
