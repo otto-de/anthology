@@ -36,7 +36,7 @@ object DomainSource extends LazyLogging:
         aggregateOpt: Option[Aggregate],
         aggregateConfigs: Seq[AggregateConfig]
     ): Option[AggregateConfig] =
-        if aggregateConfigs.size == 1 then aggregateConfigs.headOption
+        if aggregateConfigs.size == 1 && aggregateConfigs.head.recognitionPath.isEmpty then aggregateConfigs.headOption
         else
             aggregateOpt match
                 case None =>
