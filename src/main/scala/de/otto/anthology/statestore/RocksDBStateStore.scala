@@ -12,7 +12,7 @@ import scala.concurrent.Future
 
 /** StateStore implementation, backed by [[https://github.com/facebook/rocksdb RocksDB]].
   */
-class RocksDBStateStore(config: RocksDBConfig) extends StateStore:
+class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
 
     /** As it is known that executing native code can still lead to thread pinning, we are, to be on the safe side,
       * offloading it to a separate thread pool for the time being.
@@ -24,11 +24,11 @@ class RocksDBStateStore(config: RocksDBConfig) extends StateStore:
 
     private val db: RocksDB =
         RocksDB.loadLibrary()
-        val (opts, path) = configure(config)
+        val opts = configure(config)
         runBlocking:
             RocksDB.open(opts, path)
 
-    private def configure(config: RocksDBConfig): (Options, String) =
+    private def configure(config: RocksDBConfig): Options =
 
         val options: Options = new Options()
 
@@ -70,7 +70,7 @@ class RocksDBStateStore(config: RocksDBConfig) extends StateStore:
 
         options.setTableFormatConfig(tableOptions)
 
-        (options, config.dbPath)
+        options
 
     override def get(key: String): Option[Array[Byte]] =
         runBlocking:

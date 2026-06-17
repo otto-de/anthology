@@ -33,8 +33,7 @@ object KafkaSink extends LazyLogging:
                     .keySerializer(AggregateIdSerializer)
                     .valueSerializer(AggregateSerializer)
             val producerSettings: ProducerSettings[AggregateId, Aggregate] =
-                if credentials.isEmpty then baseSettings
-                else credentials.foldLeft(baseSettings)((s, k2v) => s.property(k2v._1, k2v._2))
+                credentials.foldLeft(baseSettings)((s, k2v) => s.property(k2v._1, k2v._2))
 
             supervised:
                 // setup channel for publishing

@@ -82,7 +82,6 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
         config.kafkaClusters(1).name shouldEqual "example-cluster"
         config.kafkaClusters(1).bootstrapServers shouldEqual "localhost:9092"
 
-        config.rocksDB.dbPath shouldEqual "/data/rocksdb"
         config.rocksDB.cacheSizeMb shouldEqual 512L
         config.rocksDB.writeBufferSizeMb shouldEqual 64L
 

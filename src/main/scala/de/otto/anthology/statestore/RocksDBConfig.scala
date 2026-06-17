@@ -9,7 +9,6 @@ import pureconfig.generic.semiauto.deriveReader
 // see https://github.com/pureconfig/pureconfig/issues/1673
 
 case class RocksDBConfig(
-    dbPath: String = sys.env.getOrElse("ANTHOLOGY_STATE_STORE_PATH", throw errorNoDbConfig),
     cacheSizeMb: Long = 256,
     writeBufferSizeMb: Long = 64
 ):
@@ -17,8 +16,3 @@ case class RocksDBConfig(
 
 object RocksDBConfig:
     given ConfigReader[RocksDBConfig] = deriveReader[RocksDBConfig]
-
-private[statestore] def errorNoDbConfig: IllegalArgumentException =
-    new IllegalArgumentException(
-        "No DB config found: neither 'rocks-db.db-config' nor ANTHOLOGY_STATE_STORE_PATH environment variable is set"
-    )

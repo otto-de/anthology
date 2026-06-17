@@ -40,8 +40,8 @@ class RocksDBStateStoreTest extends AnyFlatSpec, Matchers, Diagrams, BeforeAndAf
     override def beforeEach(): Unit =
         tmpFile = File.createTempFile("rocksdb_test", ".db")
         tmpFile.delete
-        val config = RocksDBConfig(dbPath = tmpFile.getAbsolutePath)
-        stateStore = RocksDBStateStore(config)
+        val config = RocksDBConfig()
+        stateStore = RocksDBStateStore(config, tmpFile.getAbsolutePath)
 
     override def afterEach(): Unit =
         stateStore.close()

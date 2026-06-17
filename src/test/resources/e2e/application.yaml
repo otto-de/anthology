@@ -1,0 +1,34 @@
+name: Anthology-E2E
+domains:
+  - name: Media 
+    kafka:
+      cluster: test-cluster
+      topic: media
+      consumer-group: e2e
+    aggregates:
+    - name: Book
+  - name: Authors 
+    kafka:
+      cluster: test-cluster
+      topic: authors
+      consumer-group: e2e
+    aggregates:
+    - name: Author
+
+domain-relations:
+  - type: many-to-one-config
+    from: [Media, Book]
+    to: [Authors, Author]
+    to-aggregate-path: $.authorId
+
+codomain:
+    deduplication:
+      batch-size: 1
+      batching-duration: 1 second
+    kafka:
+      cluster: test-cluster
+      topic: rich-books
+
+kafka-clusters:
+  - name: test-cluster
+    bootstrap-servers: localhost:6001

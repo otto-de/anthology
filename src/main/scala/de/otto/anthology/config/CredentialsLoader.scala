@@ -12,11 +12,13 @@ object CredentialsLoader extends LazyLogging:
     private val typeRef: TypeReference[java.util.Map[ClusterName, java.util.Map[String, String]]] =
         new TypeReference {}
 
-    def apply(): CredentialsMap =
+    def apply(cliCredentials: Option[String] = None): CredentialsMap =
         logger.info("Loading credentials from environment variable ANTHOLOGY_CREDENTIALS")
-        val json = sys.env.getOrElse(
-            "ANTHOLOGY_CREDENTIALS",
-            throw new IllegalStateException("ANTHOLOGY_CREDENTIALS environment variable is not set")
+        val json = cliCredentials.getOrElse(
+            sys.env.getOrElse(
+                "ANTHOLOGY_CREDENTIALS",
+                throw new IllegalStateException("ANTHOLOGY_CREDENTIALS environment variable is not set")
+            )
         )
         fromJson(json)
 
