@@ -8,7 +8,6 @@ import de.otto.anthology.config.ManyToOneConfig
 import de.otto.anthology.config.OneToManyConfig
 import de.otto.anthology.headerpropagation.GenerateConstant
 import de.otto.anthology.headerpropagation.GenerateUUID
-import de.otto.anthology.statestore.RocksDBConfig
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -86,6 +85,3 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
         config.rocksDB.writeBufferSizeMb shouldEqual 64L
 
         config.parallelism shouldEqual 12
-
-    "RocksDBConfig" should "not load without DB path" in:
-        intercept(RocksDBConfig()) shouldBe a[IllegalArgumentException]

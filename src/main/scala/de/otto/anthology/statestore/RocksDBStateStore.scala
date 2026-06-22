@@ -6,6 +6,8 @@ import org.rocksdb.util.SizeUnit
 import ox.*
 
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.concurrent.Executors
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -24,11 +26,12 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
 
     private val db: RocksDB =
         RocksDB.loadLibrary()
-        val opts = configure(config)
+        val opts = configure()
+        Files.createDirectories(Paths.get(path))
         runBlocking:
             RocksDB.open(opts, path)
 
-    private def configure(config: RocksDBConfig): Options =
+    private def configure(): Options =
 
         val options: Options = new Options()
 

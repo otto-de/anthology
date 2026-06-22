@@ -1,5 +1,7 @@
 package de.otto.anthology
 
+import com.fasterxml.jackson.databind.node.ObjectNode
+import de.otto.anthology.JsonSupport.mapper
 import io.github.embeddedkafka.EmbeddedKafka
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.StringSerializer
@@ -13,20 +15,23 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.UUID
 import scala.concurrent.duration.*
 
+/** End-to-end test that protects against regressions and serves as a basis for reproducing errors.
+  */
 class AppTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, BeforeAndAfterAll:
 
     given StringSerializer = new StringSerializer()
     given StringDeserializer = new StringDeserializer()
 
-    override def beforeAll(): Unit =
-        s"localhost:${EmbeddedKafka.start().config.kafkaPort}"
+    override def beforeAll(): Unit = EmbeddedKafka.start()
 
-    override def afterAll(): Unit =
-        EmbeddedKafka.stop()
+    override def afterAll(): Unit = EmbeddedKafka.stop()
 
-    "App" should "produce expected messages" in:
+    /** This test ensures minimal application functionality.
+      */
+    "App" should "aggregate messages from two source topics with minimal configuration" in:
 
         val tempDir: Path = Paths.get(System.getProperty("java.io.tmpdir"))
         val configDir: Path = Paths.get(URLDecoder.decode(getClass.getResource("/e2e").getFile, StandardCharsets.UTF_8))
@@ -36,11 +41,11 @@ class AppTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, BeforeAndA
         val cliArgs =
             Vector(
                 "--anthology-config-file",
-                s"$configDir/application.yaml",
+                s"$configDir/application-minimal.yaml",
                 "--anthology-credentials",
                 credentials,
                 "--anthology-state-store-path",
-                s"$tempDir/anthology-data"
+                s"$tempDir/anthology-data/${UUID.randomUUID}"
             )
 
         val mediaTopic = "media"
@@ -71,12 +76,25 @@ class AppTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, BeforeAndA
 
         // run application
         supervised:
-            timeoutOption(1.minute):
+            timeoutOption(30.seconds):
                 App.run(cliArgs)
 
         // consume from target topic
         val aggregatedMessages = consumeNumberKeyedMessagesFrom(number = 1, topic = "rich-books")
 
-        // TODO assert read messages
-        println("AGGREGATED: " + aggregatedMessages.mkString(" +++ "))
-        succeed
+        val expectedMessageKey = TestData.setupBookIdEasy.toString
+        val expectedMessageValue = {
+            val authors = {
+                val authorsArray = mapper.createArrayNode()
+                authorsArray.add(TestData.setupAuthorFeynman.toJson)
+            }
+            val book = TestData.setupBookEasy.toJson
+            book
+                .asInstanceOf[ObjectNode]
+                .set(s"${TestData.authorsDomain}/${TestData.authorAggregate}", authors)
+            book.toString()
+        }
+
+        // assert output
+        aggregatedMessages(0)._1 shouldEqual expectedMessageKey
+        aggregatedMessages(0)._2 shouldEqual expectedMessageValue
