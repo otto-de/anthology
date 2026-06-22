@@ -36,6 +36,7 @@ dependencies {
     implementation libs.rocksdb
     implementation libs.scala.library
     implementation libs.scalalogging
+    implementation libs.scallop
     implementation libs.tapir.core
     implementation libs.tapir.netty.server.sync
 

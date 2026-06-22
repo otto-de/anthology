@@ -3,6 +3,7 @@ package de.otto.anthology
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.config.AnthologyConfig
 import de.otto.anthology.config.AnthologyConfigFactory
+import de.otto.anthology.config.CliConf
 import de.otto.anthology.config.CodomainConfig
 import de.otto.anthology.config.CredentialsLoader
 import de.otto.anthology.config.DomainConfigs
@@ -17,11 +18,13 @@ import de.otto.anthology.kafka.ConsumerName
 import de.otto.anthology.statestore.RocksDBConfig
 import de.otto.anthology.statestore.RocksDBStateStore
 import de.otto.anthology.statestore.StateStore
+import ox.ExitCode
 import ox.Ox
 import ox.OxApp
-import ox.fork
+import ox.discard
 import ox.kafka.ConsumerSettings
 import ox.kafka.ConsumerSettings.AutoOffsetReset
+import ox.par
 import ox.resilience.retry
 import ox.scheduling.Schedule
 import ox.supervised
@@ -30,18 +33,19 @@ import ox.useInScope
 import scala.concurrent.duration.*
 import scala.util.control.NonFatal
 
-object App extends OxApp.Simple, LazyLogging:
-    override def run(using Ox): Unit =
+object App extends OxApp, LazyLogging:
+    override def run(args: Vector[String])(using Ox): ExitCode =
         retry(Schedule.fixedInterval(1.minute)):
             supervised:
                 try
-                    logger.info("Starting Anthology (v0.0.8)...")
-
                     // Setup infra...
-                    val config: AnthologyConfig = AnthologyConfigFactory()
-                    logger.info("Anthology configuration loaded successfully")
+                    val cliConfig = CliConf(args)
 
-                    val credentials: Map[ClusterName, Map[String, String]] = CredentialsLoader()
+                    val config: AnthologyConfig = AnthologyConfigFactory(cliConfig.anthologyConfigFile.toOption)
+                    logger.info(s"Starting ${config.name}...")
+
+                    val credentials: Map[ClusterName, Map[String, String]] =
+                        CredentialsLoader(cliConfig.anthologyCredentials.toOption)
                     logger.info("Credentials loaded successfully")
 
                     val clusterSettings: Map[ClusterName, KafkaClusterSettings] =
@@ -52,8 +56,11 @@ object App extends OxApp.Simple, LazyLogging:
                     val codomainConfig: CodomainConfig = config.codomain
                     logger.info("Domain and codomain settings initialized successfully")
 
+                    val dbPath: String =
+                        cliConfig.anthologyStateStorePath.getOrElse(sys.env("ANTHOLOGY_STATE_STORE_PATH"))
+                    val dbConfig: RocksDBConfig = config.rocksDB
                     val store: StateStore =
-                        useInScope(acquireRocksDbStateStore(config.rocksDB))(releaseRocksDbStateStore)
+                        useInScope(acquireRocksDbStateStore(dbConfig, dbPath))(releaseRocksDbStateStore)
                     logger.info("State store initialized successfully")
 
                     val kafkaConsumers: ConsumerMap =
@@ -77,11 +84,8 @@ object App extends OxApp.Simple, LazyLogging:
 
                     // ...and run application
                     logger.info(s"Starting stream with ${config.parallelism}x parallelism...")
-
-                    val serverF = fork:
-                        Server().start()
-
-                    val appF = fork:
+                    def startHttpServer: Unit = Server().start()
+                    def startAppWorkflow: Unit =
                         AppWorkflow.run(
                             domainConfigs,
                             domainRelationConfigs,
@@ -91,16 +95,17 @@ object App extends OxApp.Simple, LazyLogging:
                             kafkaConsumers,
                             config.parallelism
                         )
+                    par(startHttpServer, startAppWorkflow).discard
 
-                    (serverF.join(), appF.join())
                 catch
                     case NonFatal(e) =>
                         logger.error("Anthology failed with an exception. Will retry...", e)
                         throw e
+        ExitCode.Success
 
-    private def acquireRocksDbStateStore(dbConfig: RocksDBConfig): RocksDBStateStore =
+    private def acquireRocksDbStateStore(dbConfig: RocksDBConfig, dbPath: String): RocksDBStateStore =
         logger.info("Acquiring RocksDBStateStore...")
-        RocksDBStateStore(dbConfig)
+        RocksDBStateStore(dbConfig, dbPath)
 
     private def releaseRocksDbStateStore(db: RocksDBStateStore): Unit =
         logger.info("Releasing RocksDBStateStore...")

@@ -14,6 +14,7 @@ rocksdb = "10.10.1"
 scala-library = "3.7.4"
 scalalogging = "3.9.5"
 scalatest = "3.2.19"
+scallop = "6.0.0"
 slf4j = "2.0.17"
 tapir = "1.13.20"
 
@@ -40,6 +41,7 @@ rocksdb = { module = "org.rocksdb:rocksdbjni", version.ref = "rocksdb" }
 scala-library = { module = "org.scala-lang:scala3-library_3", version.ref = "scala-library" }
 scalalogging = { module = "com.typesafe.scala-logging:scala-logging_3", version.ref = "scalalogging" }
 scalatest = { module = "org.scalatest:scalatest_3", version.ref = "scalatest" }
+scallop = { module = "org.rogach:scallop_3", version.ref = "scallop" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 tapir-core = { module = "com.softwaremill.sttp.tapir:tapir-core_3", version.ref = "tapir" }
 tapir-netty-server-sync = { module = "com.softwaremill.sttp.tapir:tapir-netty-server-sync_3", version.ref = "tapir" }

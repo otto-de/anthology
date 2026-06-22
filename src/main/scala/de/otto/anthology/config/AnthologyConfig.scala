@@ -19,11 +19,11 @@ object AnthologyConfigFactory extends LazyLogging:
     private def resourcePath(path: String): Path =
         Paths.get(URLDecoder.decode(getClass.getResource("/" + path).getFile, StandardCharsets.UTF_8))
 
-    def apply(): AnthologyConfig =
+    def apply(cliPath: Option[String] = None): AnthologyConfig =
         logger.info("Loading Anthology configuration")
         val path: Path =
-            sys.env
-                .get("ANTHOLOGY_CONFIG_FILE")
+            cliPath
+                .orElse(sys.env.get("ANTHOLOGY_CONFIG_FILE"))
                 .map(Paths.get(_))
                 .getOrElse(resourcePath("application.yaml"))
         logger.info(s"loading config from $path")
