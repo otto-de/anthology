@@ -126,19 +126,19 @@ object DomainLinkingStage extends LazyLogging:
                                             .mapPar(parallelism.toInt): mtoConfig =>
                                                 val toAggregateKeyOldOpt =
                                                     linkValuesOld
-                                                        .get(mtoConfig.to)
+                                                        .get(mtoConfig.relTo)
                                                         .map(toAggregateId =>
-                                                            s"${mtoConfig.to._1}/${mtoConfig.to._2}/$toAggregateId"
+                                                            s"${mtoConfig.relTo._1}/${mtoConfig.relTo._2}/$toAggregateId"
                                                         )
                                                 val toAggregateKeyNewOpt =
-                                                    Option(parsedDoc.read[ValueNode](mtoConfig.toAggregatePath))
+                                                    Option(parsedDoc.read[ValueNode](mtoConfig.refFromManyToOnePath))
                                                         .map(v =>
                                                             if v.canConvertToLong then v.longValue else v.textValue
                                                         )
                                                         .map(_.toString)
                                                         .map(AggregateId(_))
                                                         .map(toAggregateId =>
-                                                            s"${mtoConfig.to._1}/${mtoConfig.to._2}/$toAggregateId"
+                                                            s"${mtoConfig.relTo._1}/${mtoConfig.relTo._2}/$toAggregateId"
                                                         )
                                                 (toAggregateKeyOldOpt, toAggregateKeyNewOpt) match
                                                     case (None, Some(aggN)) =>
@@ -194,19 +194,19 @@ object DomainLinkingStage extends LazyLogging:
                                             .mapPar(parallelism.toInt): otmConfig =>
                                                 val fromAggregateKeyOldOpt =
                                                     backLinkValuesOld
-                                                        .get(otmConfig.from)
+                                                        .get(otmConfig.relFrom)
                                                         .map(fromAggregateId =>
-                                                            s"${otmConfig.from._1}/${otmConfig.from._2}/$fromAggregateId"
+                                                            s"${otmConfig.relFrom._1}/${otmConfig.relFrom._2}/$fromAggregateId"
                                                         )
                                                 val fromAggregateKeyNewOpt =
-                                                    Option(parsedDoc.read[ValueNode](otmConfig.fromAggregatePath))
+                                                    Option(parsedDoc.read[ValueNode](otmConfig.refFromManyToOnePath))
                                                         .map(v =>
                                                             if v.canConvertToLong then v.longValue else v.textValue
                                                         )
                                                         .map(_.toString)
                                                         .map(AggregateId(_))
                                                         .map(fromAggregateId =>
-                                                            s"${otmConfig.from._1}/${otmConfig.from._2}/$fromAggregateId"
+                                                            s"${otmConfig.relFrom._1}/${otmConfig.relFrom._2}/$fromAggregateId"
                                                         )
                                                 (fromAggregateKeyOldOpt, fromAggregateKeyNewOpt) match
                                                     case (None, Some(aggN)) =>

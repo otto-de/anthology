@@ -4,16 +4,19 @@
 # Ignore Gradle build output directory
 build
 
+# Ignore VSCode directories
 .bloop
 .metals
 .vscode
 
-.idea
+# Ignore Scala CLI directory
+.scala-build
 
 # Runtime secrets — never commit
 credentials.env
 
 # Ignore IntelliJ IDEA project files
+.idea
 anthology.iml
 anthology.ipr
 anthology.iws

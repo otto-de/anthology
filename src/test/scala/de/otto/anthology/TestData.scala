@@ -5,8 +5,8 @@ import de.otto.anthology.Aggregate
 import de.otto.anthology.AggregateId
 import de.otto.anthology.JsonSupport.mapper
 import de.otto.anthology.config.DomainRelationConfigs
-import de.otto.anthology.config.ManyToOneConfig
-import de.otto.anthology.config.OneToManyConfig
+import de.otto.anthology.config.ManyToOne
+import de.otto.anthology.config.OneToMany
 
 object TestData:
 
@@ -22,34 +22,34 @@ object TestData:
     val categoryAggregate = AggregateName("Category")
 
     def setupRelationsConfig(): DomainRelationConfigs =
-        val books2authors = ManyToOneConfig(
-            from = mediaDomain -> bookAggregate,
-            to = authorsDomain -> authorAggregate,
-            toAggregatePath = JsonPath.compile("$.authorId")
+        val books2authors = ManyToOne(
+            relFrom = mediaDomain -> bookAggregate,
+            relTo = authorsDomain -> authorAggregate,
+            refFromManyToOnePath = JsonPath.compile("$.authorId")
         )
 
-        val books2receipts = OneToManyConfig(
-            from = mediaDomain -> bookAggregate,
-            to = storageDomain -> receiptAggregate,
-            fromAggregatePath = JsonPath.compile("$.bookId")
+        val books2receipts = OneToMany(
+            relFrom = mediaDomain -> bookAggregate,
+            relTo = storageDomain -> receiptAggregate,
+            refFromManyToOnePath = JsonPath.compile("$.bookId")
         )
 
-        val receipts2shelves = ManyToOneConfig(
-            from = storageDomain -> receiptAggregate,
-            to = storageDomain -> shelfAggregate,
-            toAggregatePath = JsonPath.compile("$.shelfId")
+        val receipts2shelves = ManyToOne(
+            relFrom = storageDomain -> receiptAggregate,
+            relTo = storageDomain -> shelfAggregate,
+            refFromManyToOnePath = JsonPath.compile("$.shelfId")
         )
 
-        val books2categories = ManyToOneConfig(
-            from = mediaDomain -> bookAggregate,
-            to = categoriesDomain -> categoryAggregate,
-            toAggregatePath = JsonPath.compile("$.categoryId")
+        val books2categories = ManyToOne(
+            relFrom = mediaDomain -> bookAggregate,
+            relTo = categoriesDomain -> categoryAggregate,
+            refFromManyToOnePath = JsonPath.compile("$.categoryId")
         )
 
-        val categories2shelves = ManyToOneConfig(
-            from = categoriesDomain -> categoryAggregate,
-            to = storageDomain -> shelfAggregate,
-            toAggregatePath = JsonPath.compile("$.shelfId")
+        val categories2shelves = ManyToOne(
+            relFrom = categoriesDomain -> categoryAggregate,
+            relTo = storageDomain -> shelfAggregate,
+            refFromManyToOnePath = JsonPath.compile("$.shelfId")
         )
 
         DomainRelationConfigs(

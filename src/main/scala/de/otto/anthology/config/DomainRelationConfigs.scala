@@ -4,29 +4,30 @@ import de.otto.anthology.AggregateName
 import de.otto.anthology.DomainName
 
 case class DomainRelationConfigs(relations: Seq[DomainRelationConfig]):
-    val manyToOneRelationsStartingFrom: Map[(DomainName, AggregateName), Set[ManyToOneConfig]] =
-        val result = scala.collection.mutable.Map[(DomainName, AggregateName), Set[ManyToOneConfig]]()
+    val manyToOneRelationsStartingFrom: Map[(DomainName, AggregateName), Set[ManyToOne]] =
+        val result = scala.collection.mutable.Map[(DomainName, AggregateName), Set[ManyToOne]]()
         relations
             .collect:
-                case mto: ManyToOneConfig =>
-                    val oldSet = result.getOrElse(mto.from, Set.empty)
+                case mto: ManyToOne =>
+                    val oldSet = result.getOrElse(mto.relFrom, Set.empty)
                     val newSet = oldSet + mto
-                    result.update(mto.from, newSet)
+                    result.update(mto.relFrom, newSet)
         result.toMap
 
-    val oneToManyRelationsLeadingTo: Map[(DomainName, AggregateName), Set[OneToManyConfig]] =
-        val result = scala.collection.mutable.Map[(DomainName, AggregateName), Set[OneToManyConfig]]()
+    val oneToManyRelationsLeadingTo: Map[(DomainName, AggregateName), Set[OneToMany]] =
+        val result = scala.collection.mutable.Map[(DomainName, AggregateName), Set[OneToMany]]()
         relations
             .collect:
-                case otm: OneToManyConfig =>
-                    val oldSet = result.getOrElse(otm.to, Set.empty)
+                case otm: OneToMany =>
+                    val oldSet = result.getOrElse(otm.relTo, Set.empty)
                     val newSet = oldSet + otm
-                    result.update(otm.to, newSet)
+                    result.update(otm.relTo, newSet)
         result.toMap
 
     val root: (DomainName, AggregateName) =
-        val all: Set[(DomainName, AggregateName)] = relations.flatMap(rel => Seq(rel.from, rel.to)).toSet
-        val to: Set[(DomainName, AggregateName)] = relations.map(rel => rel.to).toSet
+        val all: Set[(DomainName, AggregateName)] =
+            relations.flatMap(rel => Seq(rel.relFrom, rel.relTo)).toSet
+        val to: Set[(DomainName, AggregateName)] = relations.map(rel => rel.relTo).toSet
         val roots: Set[(DomainName, AggregateName)] = all -- to
         if roots.isEmpty then throw new IllegalArgumentException("Possible misconfiguration: no root configured")
         else if roots.size > 1 then
