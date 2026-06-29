@@ -30,6 +30,10 @@ import ox.scheduling.Schedule
 import ox.supervised
 import ox.useInScope
 
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import scala.concurrent.duration.*
 import scala.util.control.NonFatal
 
@@ -43,6 +47,15 @@ object App extends OxApp, LazyLogging:
 
                     val config: AnthologyConfig = AnthologyConfigFactory(cliConfig.anthologyConfigFile.toOption)
                     logger.info(s"Starting ${config.name}...")
+
+                    val outboundIp: String = HttpClient
+                        .newHttpClient()
+                        .send(
+                            HttpRequest.newBuilder(URI.create("https://api.ipify.org")).build(),
+                            HttpResponse.BodyHandlers.ofString()
+                        )
+                        .body()
+                    logger.info(s"Outbound IP is $outboundIp")
 
                     val credentials: Map[ClusterName, Map[String, String]] =
                         CredentialsLoader(cliConfig.anthologyCredentials.toOption)
