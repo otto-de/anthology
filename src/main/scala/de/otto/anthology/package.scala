@@ -3,36 +3,32 @@ package de.otto.anthology
 import com.fasterxml.jackson.databind.JsonNode
 import pureconfig.ConfigReader
 
-opaque type AggregateId = String
-object AggregateId:
-    def apply(aid: String): AggregateId = aid
+opaque type MessageId = String
+object MessageId:
+    def apply(mid: String): MessageId = mid
 
-opaque type Aggregate = JsonNode
+opaque type Message = JsonNode
+object Message:
+    def apply(agg: JsonNode): Message = agg
+    extension (agg: Message) def toJson: JsonNode = agg
 
-object Aggregate:
-    def apply(agg: JsonNode): Aggregate = agg
-    extension (agg: Aggregate) def toJson: JsonNode = agg
-
-/** Name of a source domain.
+/** Name of a source channel.
   */
-opaque type DomainName = String
-object DomainName:
-    def apply(name: String): DomainName = name
-    given domainNameConfigReader: ConfigReader[DomainName] =
-        ConfigReader[String].map(nameStr => DomainName(nameStr))
+opaque type ChannelName = String
+object ChannelName:
+    def apply(name: String): ChannelName = name
+    given ConfigReader[ChannelName] = ConfigReader[String].map(nameStr => ChannelName(nameStr))
 
-/** Name of an agggregate. Unlike the [[anthology.AggregateId]], it does not identify an instance, but rather a class of
-  * aggregates.
+/** Name of an message format. Unlike the [[anthology.MessageId]], it does not identify an instance, but rather a class
+  * of messages.
   */
-opaque type AggregateName = String
-object AggregateName:
-    def apply(name: String): AggregateName = name
-    given aggregateNameConfigReader: ConfigReader[AggregateName] =
-        ConfigReader[String].map(nameStr => AggregateName(nameStr))
+opaque type MessageFormatName = String
+object MessageFormatName:
+    def apply(name: String): MessageFormatName = name
+    given ConfigReader[MessageFormatName] = ConfigReader[String].map(nameStr => MessageFormatName(nameStr))
 
 opaque type Parallelism = Int
 object Parallelism:
     def apply(para: Int): Parallelism = para
-    given parallelismConfigReader: ConfigReader[Parallelism] =
-        ConfigReader[Int].map(paraInt => Parallelism(paraInt))
+    given ConfigReader[Parallelism] = ConfigReader[Int].map(paraInt => Parallelism(paraInt))
     extension (para: Parallelism) def toInt: Int = para

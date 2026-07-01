@@ -1,11 +1,11 @@
 package de.otto.anthology
 
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
-import de.otto.anthology.DomainLinkingStage.linkDomainAggregates
-import de.otto.anthology.DomainPersistenceStage.persistDomainAggregates
+import de.otto.anthology.DomainLinkingStage.linkDomainMessages
+import de.otto.anthology.DomainPersistenceStage.persistDomainMessages
 import de.otto.anthology.JsonSupport.mapper
-import de.otto.anthology.QualifiedAggregateId
+import de.otto.anthology.Message
+import de.otto.anthology.MessageId
+import de.otto.anthology.QualifiedMessageId
 import de.otto.anthology.TestData.*
 import de.otto.anthology.TestUtils.InMemoryStateStore
 import de.otto.anthology.TestUtils.mockedEmptyKafkaRecord
@@ -28,22 +28,22 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
         val authorId = setupAuthorIdTolkien
 
         val bookId = setupBookIdRings
-        val bookQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookId)
+        val bookQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId)
         val book = setupBookRings()
         val bookPass = mockedKafkaRecord(bookId.toString, book.toJson)
 
         Flow.fromValues((Some(bookQaid, Some(book)), bookPass))
-            .persistDomainAggregates(stateStore)
+            .persistDomainMessages(stateStore)
             .runToList()
 
         val config = setupRelationsConfig()
 
         // when
-        val src: Flow[(Option[(QualifiedAggregateId)], Passthrough)] =
+        val src: Flow[(Option[(QualifiedMessageId)], Passthrough)] =
             Flow.fromValues((Some(bookQaid), bookPass))
 
-        val out: List[(Option[(QualifiedAggregateId)], Passthrough)] =
-            src.linkDomainAggregates(config, stateStore).runToList()
+        val out: List[(Option[(QualifiedMessageId)], Passthrough)] =
+            src.linkDomainMessages(config, stateStore).runToList()
 
         // then
         assert(out == List((Some(bookQaid), bookPass)))
@@ -52,15 +52,16 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
 
         val bookLNK = stateStore.getStringSet(s"${StateStoreSection.LNK}/$bookQaid")
         assert(bookLNK.size == 2)
-        assert(bookLNK.contains(s"$authorsDomain/$authorAggregate/$authorId"))
-        assert(bookLNK.contains(s"$categoriesDomain/$categoryAggregate/$categoryId"))
+        assert(bookLNK.contains(s"$authorsChannel/$authorMessageFormat/$authorId"))
+        assert(bookLNK.contains(s"$categoriesChannel/$categoryMessageFormat/$categoryId"))
 
-        val authorBLK = stateStore.getStringSet(s"${StateStoreSection.BLK}/$authorsDomain/$authorAggregate/$authorId")
+        val authorBLK =
+            stateStore.getStringSet(s"${StateStoreSection.BLK}/$authorsChannel/$authorMessageFormat/$authorId")
         assert(authorBLK.size == 1)
         assert(authorBLK.contains(bookQaid.toString))
 
         val categoriesBLK =
-            stateStore.getStringSet(s"${StateStoreSection.BLK}/$categoriesDomain/$categoryAggregate/$categoryId")
+            stateStore.getStringSet(s"${StateStoreSection.BLK}/$categoriesChannel/$categoryMessageFormat/$categoryId")
         assert(categoriesBLK.size == 1)
         assert(categoriesBLK.contains(bookQaid.toString))
 
@@ -73,8 +74,8 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
         val authorId = setupAuthorIdTolkien
 
         val bookId = setupBookIdRings
-        val bookQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookId)
-        val book = Aggregate(mapper.readTree(s"""
+        val bookQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId)
+        val book = Message(mapper.readTree(s"""
             {   
                 "id": "$setupBookIdRings",
                 "categoryId": 327,
@@ -87,17 +88,17 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
         val bookPass = mockedKafkaRecord(bookId.toString, book.toJson)
 
         Flow.fromValues((Some(bookQaid, Some(book)), bookPass))
-            .persistDomainAggregates(stateStore)
+            .persistDomainMessages(stateStore)
             .runToList()
 
         val config = setupRelationsConfig()
 
         // when
-        val src: Flow[(Option[(QualifiedAggregateId)], Passthrough)] =
+        val src: Flow[(Option[(QualifiedMessageId)], Passthrough)] =
             Flow.fromValues((Some(bookQaid), bookPass))
 
-        val out: List[(Option[(QualifiedAggregateId)], Passthrough)] =
-            src.linkDomainAggregates(config, stateStore).runToList()
+        val out: List[(Option[(QualifiedMessageId)], Passthrough)] =
+            src.linkDomainMessages(config, stateStore).runToList()
 
         // then
         assert(out == List((Some(bookQaid), bookPass)))
@@ -106,15 +107,16 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
 
         val bookLNK = stateStore.getStringSet(s"${StateStoreSection.LNK}/$bookQaid")
         assert(bookLNK.size == 2)
-        assert(bookLNK.contains(s"$authorsDomain/$authorAggregate/$authorId"))
-        assert(bookLNK.contains(s"$categoriesDomain/$categoryAggregate/$categoryId"))
+        assert(bookLNK.contains(s"$authorsChannel/$authorMessageFormat/$authorId"))
+        assert(bookLNK.contains(s"$categoriesChannel/$categoryMessageFormat/$categoryId"))
 
-        val authorBLK = stateStore.getStringSet(s"${StateStoreSection.BLK}/$authorsDomain/$authorAggregate/$authorId")
+        val authorBLK =
+            stateStore.getStringSet(s"${StateStoreSection.BLK}/$authorsChannel/$authorMessageFormat/$authorId")
         assert(authorBLK.size == 1)
         assert(authorBLK.contains(bookQaid.toString))
 
         val categoriesBLK =
-            stateStore.getStringSet(s"${StateStoreSection.BLK}/$categoriesDomain/$categoryAggregate/$categoryId")
+            stateStore.getStringSet(s"${StateStoreSection.BLK}/$categoriesChannel/$categoryMessageFormat/$categoryId")
         assert(categoriesBLK.size == 1)
         assert(categoriesBLK.contains(bookQaid.toString))
 
@@ -126,17 +128,17 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
         val shelfIdFi = setupShelfIdFiction
 
         val categoryId = setupCategoryIdFantasy
-        val categoryQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryId)
+        val categoryQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryId)
         val category = setupCategoryFantasy
         val categoryPass = mockedKafkaRecord(categoryId.toString, category.toJson)
 
         val authorId = setupAuthorIdTolkien
-        val authorQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorId)
+        val authorQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorId)
         val author = setupAuthorTolkien
         val authorPass = mockedKafkaRecord(authorId.toString, author.toJson)
 
         val bookId = setupBookIdRings
-        val bookQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookId)
+        val bookQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId)
         val book = setupBookRings()
         val bookPass = mockedKafkaRecord(bookId.toString, book.toJson)
 
@@ -151,14 +153,14 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
                     (Some(authorQaid, Some(author)), authorPass),
                     (Some(bookQaid, Some(book)), bookPass)
                 )
-                .persistDomainAggregates(stateStore)
+                .persistDomainMessages(stateStore)
                 .runToList()
 
-            val src: Flow[(Option[QualifiedAggregateId], Passthrough)] =
+            val src: Flow[(Option[QualifiedMessageId], Passthrough)] =
                 Flow.fromIterable(outP)
 
-            val out: List[(Option[QualifiedAggregateId], Passthrough)] =
-                src.linkDomainAggregates(config, stateStore)
+            val out: List[(Option[QualifiedMessageId], Passthrough)] =
+                src.linkDomainMessages(config, stateStore)
                     .runToList()
 
             // then link 3 aggregates
@@ -183,7 +185,7 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
 
             val categoriesLNK = stateStore.getStringSet(s"${StateStoreSection.LNK}/$categoryQaid")
             assert(categoriesLNK.size == 1)
-            assert(categoriesLNK.contains(s"$storageDomain/$shelfAggregate/$shelfIdFi"))
+            assert(categoriesLNK.contains(s"$storageChannel/$shelfMessageFormat/$shelfIdFi"))
 
             val categoriesBLK =
                 stateStore.getStringSet(s"${StateStoreSection.BLK}/$categoryQaid")
@@ -191,7 +193,7 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
             assert(categoriesBLK.contains(bookQaid.toString))
 
             val shelfBLK =
-                stateStore.getStringSet(s"${StateStoreSection.BLK}/$storageDomain/$shelfAggregate/$shelfIdFi")
+                stateStore.getStringSet(s"${StateStoreSection.BLK}/$storageChannel/$shelfMessageFormat/$shelfIdFi")
             assert(shelfBLK.size == 1)
             assert(shelfBLK.contains(categoryQaid.toString))
         }
@@ -204,14 +206,14 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
                     (Some(authorQaid, None), authorPass), // author deletion
                     (Some(bookQaid, None), bookPass) // book deletion
                 )
-                .persistDomainAggregates(stateStore)
+                .persistDomainMessages(stateStore)
                 .runToList()
 
-            val src: Flow[(Option[QualifiedAggregateId], Passthrough)] =
+            val src: Flow[(Option[QualifiedMessageId], Passthrough)] =
                 Flow.fromIterable(outP)
 
-            val out: List[(Option[QualifiedAggregateId], Passthrough)] =
-                src.linkDomainAggregates(config, stateStore).runToList()
+            val out: List[(Option[QualifiedMessageId], Passthrough)] =
+                src.linkDomainMessages(config, stateStore).runToList()
 
             // then
             // delete the relations between the deleted aggregates
@@ -230,7 +232,7 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
 
             val categoriesLNK = stateStore.getStringSet(s"${StateStoreSection.LNK}/$categoryQaid")
             assert(categoriesLNK.size == 1)
-            assert(categoriesLNK.contains(s"$storageDomain/$shelfAggregate/$shelfIdFi"))
+            assert(categoriesLNK.contains(s"$storageChannel/$shelfMessageFormat/$shelfIdFi"))
 
             val categoriesBLK =
                 stateStore.getStringSet(s"${StateStoreSection.BLK}/$categoryQaid")
@@ -238,7 +240,7 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
             assert(categoriesBLK.contains(s"$bookQaid"))
 
             val shelfBLK =
-                stateStore.getStringSet(s"${StateStoreSection.BLK}/$storageDomain/$shelfAggregate/$shelfIdFi")
+                stateStore.getStringSet(s"${StateStoreSection.BLK}/$storageChannel/$shelfMessageFormat/$shelfIdFi")
             assert(shelfBLK.size == 1)
             assert(shelfBLK.contains(categoryQaid.toString))
         }
@@ -249,22 +251,22 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
         val stateStore = InMemoryStateStore()
 
         val categoryIdFantasy = setupCategoryIdFantasy
-        val categoryFantasyQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdFantasy)
+        val categoryFantasyQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdFantasy)
         val categoryFantasy = setupCategoryFantasy
         val categoryFantasyPass = mockedKafkaRecord(categoryIdFantasy.toString, categoryFantasy.toJson)
 
         val categoryIdMystery = setupCategoryIdMystery
-        val categoryMysteryQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdMystery)
+        val categoryMysteryQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdMystery)
         val categoryMystery = setupCategoryMystery
         val categoryMysteryPass = mockedKafkaRecord(categoryIdMystery.toString, categoryMystery.toJson)
 
         val authorId = setupAuthorIdTolkien
-        val authorQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorId)
+        val authorQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorId)
         val author = setupAuthorTolkien
         val authorPass = mockedKafkaRecord(authorId.toString, author.toJson)
 
         val bookId = setupBookIdRings
-        val bookQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookId)
+        val bookQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId)
         val book = setupBookRings(categoryId = categoryIdMystery) // intentionally wrong! we will fix it later
         val bookPass = mockedKafkaRecord(bookId.toString, book.toJson)
 
@@ -279,14 +281,14 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
                     (Some(authorQaid, Some(author)), authorPass),
                     (Some(bookQaid, Some(book)), bookPass)
                 )
-                .persistDomainAggregates(stateStore)
+                .persistDomainMessages(stateStore)
                 .runToList()
 
-            val src: Flow[(Option[QualifiedAggregateId], Passthrough)] =
+            val src: Flow[(Option[QualifiedMessageId], Passthrough)] =
                 Flow.fromIterable(outP)
 
-            val out: List[(Option[QualifiedAggregateId], Passthrough)] =
-                src.linkDomainAggregates(config, stateStore)
+            val out: List[(Option[QualifiedMessageId], Passthrough)] =
+                src.linkDomainMessages(config, stateStore)
                     .runToList()
 
             // then
@@ -327,14 +329,14 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
                 .fromValues(
                     (Some(bookQaid, Some(bookModified)), bookModifiedPass)
                 )
-                .persistDomainAggregates(stateStore) // persist modified aggregate
+                .persistDomainMessages(stateStore) // persist modified aggregate
                 .runToList()
 
-            val src: Flow[(Option[QualifiedAggregateId], Passthrough)] =
+            val src: Flow[(Option[QualifiedMessageId], Passthrough)] =
                 Flow.fromIterable(outP)
 
-            val out: List[(Option[QualifiedAggregateId], Passthrough)] =
-                src.linkDomainAggregates(config, stateStore).runToList()
+            val out: List[(Option[QualifiedMessageId], Passthrough)] =
+                src.linkDomainMessages(config, stateStore).runToList()
 
             // then
             // remove old reference and add new reference
@@ -363,17 +365,17 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
         val stateStore = InMemoryStateStore()
 
         val categoryIdFantasy = setupCategoryIdFantasy
-        val categoryFantasyQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdFantasy)
+        val categoryFantasyQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdFantasy)
         val categoryFantasy = setupCategoryFantasy
         val categoryFantasyPass = mockedKafkaRecord(categoryIdFantasy.toString, categoryFantasy.toJson)
 
         val authorId = setupAuthorIdTolkien
-        val authorQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorId)
+        val authorQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorId)
         val author = setupAuthorTolkien
         val authorPass = mockedKafkaRecord(authorId.toString, author.toJson)
 
         val bookId = setupBookIdRings
-        val bookQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookId)
+        val bookQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId)
         val book = setupBookRings(categoryId = categoryIdFantasy)
         val bookPass = mockedKafkaRecord(bookId.toString, book.toJson)
 
@@ -387,14 +389,14 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
                     (Some(authorQaid, Some(author)), authorPass),
                     (Some(bookQaid, Some(book)), bookPass)
                 )
-                .persistDomainAggregates(stateStore)
+                .persistDomainMessages(stateStore)
                 .runToList()
 
-            val src: Flow[(Option[QualifiedAggregateId], Passthrough)] =
+            val src: Flow[(Option[QualifiedMessageId], Passthrough)] =
                 Flow.fromIterable(outP)
 
-            val out: List[(Option[QualifiedAggregateId], Passthrough)] =
-                src.linkDomainAggregates(config, stateStore)
+            val out: List[(Option[QualifiedMessageId], Passthrough)] =
+                src.linkDomainMessages(config, stateStore)
                     .runToList()
 
             // then
@@ -428,7 +430,7 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
             // reference removal incoming
 
             val bookModified =
-                Aggregate(mapper.readTree(s"""
+                Message(mapper.readTree(s"""
                     {
                         "id": "$setupBookIdRings",
                         "authorId": "$setupAuthorIdTolkien",
@@ -444,14 +446,14 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
                 .fromValues(
                     (Some(bookQaid, Some(bookModified)), bookModifiedPass)
                 )
-                .persistDomainAggregates(stateStore) // persist modified aggregate
+                .persistDomainMessages(stateStore) // persist modified aggregate
                 .runToList()
 
-            val src: Flow[(Option[QualifiedAggregateId], Passthrough)] =
+            val src: Flow[(Option[QualifiedMessageId], Passthrough)] =
                 Flow.fromIterable(outP)
 
-            val out: List[(Option[QualifiedAggregateId], Passthrough)] =
-                src.linkDomainAggregates(config, stateStore).runToList()
+            val out: List[(Option[QualifiedMessageId], Passthrough)] =
+                src.linkDomainMessages(config, stateStore).runToList()
 
             // then
             // remove reference from book to category
@@ -474,100 +476,100 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
         // given
         val stateStore = InMemoryStateStore()
 
-        val categoryIdFantasy: AggregateId = setupCategoryIdFantasy
-        val categoryFantasyQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdFantasy)
-        val categoryFantasy: Aggregate = setupCategoryFantasy
+        val categoryIdFantasy: MessageId = setupCategoryIdFantasy
+        val categoryFantasyQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdFantasy)
+        val categoryFantasy: Message = setupCategoryFantasy
         val categoryPassFantasy: Passthrough = mockedKafkaRecord(categoryIdFantasy.toString, categoryFantasy.toJson)
 
-        val categoryIdMystery: AggregateId = setupCategoryIdMystery
-        val categoryMysteryQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdMystery)
-        val categoryMystery: Aggregate = setupCategoryMystery
+        val categoryIdMystery: MessageId = setupCategoryIdMystery
+        val categoryMysteryQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdMystery)
+        val categoryMystery: Message = setupCategoryMystery
         val categoryPassMystery: Passthrough = mockedKafkaRecord(categoryIdMystery.toString, categoryMystery.toJson)
 
-        val categoryIdScientific: AggregateId = setupCategoryIdScientific
-        val categoryScientificQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdScientific)
-        val categoryScientific: Aggregate = setupCategoryScientific
+        val categoryIdScientific: MessageId = setupCategoryIdScientific
+        val categoryScientificQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdScientific)
+        val categoryScientific: Message = setupCategoryScientific
         val categoryPassScientific: Passthrough =
             mockedKafkaRecord(categoryIdScientific.toString, categoryScientific.toJson)
 
-        val authorIdTolkien: AggregateId = setupAuthorIdTolkien
-        val authorTolkienQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdTolkien)
-        val authorTolkien: Aggregate = setupAuthorTolkien
+        val authorIdTolkien: MessageId = setupAuthorIdTolkien
+        val authorTolkienQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdTolkien)
+        val authorTolkien: Message = setupAuthorTolkien
         val authorPassTolkien: Passthrough = mockedKafkaRecord(authorIdTolkien.toString, authorTolkien.toJson)
 
-        val authorIdChristie: AggregateId = setupAuthorIdChristie
-        val authorChristieQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdChristie)
-        val authorChristie: Aggregate = setupAuthorCristie
+        val authorIdChristie: MessageId = setupAuthorIdChristie
+        val authorChristieQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdChristie)
+        val authorChristie: Message = setupAuthorCristie
         val authorPassChristie: Passthrough = mockedKafkaRecord(authorIdChristie.toString, authorChristie.toJson)
 
-        val authorIdKnuth: AggregateId = setupAuthorIdKnuth
-        val authorKnuthQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdKnuth)
-        val authorKnuth: Aggregate = setupAuthorKnuth
+        val authorIdKnuth: MessageId = setupAuthorIdKnuth
+        val authorKnuthQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdKnuth)
+        val authorKnuth: Message = setupAuthorKnuth
         val authorPassKnuth: Passthrough = mockedKafkaRecord(authorIdKnuth.toString, authorKnuth.toJson)
 
-        val authorIdFeynman: AggregateId = setupAuthorIdFeynman
-        val authorFeynmanQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdFeynman)
-        val authorFeynman: Aggregate = setupAuthorFeynman
+        val authorIdFeynman: MessageId = setupAuthorIdFeynman
+        val authorFeynmanQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdFeynman)
+        val authorFeynman: Message = setupAuthorFeynman
         val authorPassFeynman: Passthrough = mockedKafkaRecord(authorIdFeynman.toString, authorFeynman.toJson)
 
-        val bookIdSilmarillion: AggregateId = setupBookIdSilmarillion
-        val bookSilmarillionQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdSilmarillion)
-        val bookSilmarillion: Aggregate = setupBookSilmarillion
+        val bookIdSilmarillion: MessageId = setupBookIdSilmarillion
+        val bookSilmarillionQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdSilmarillion)
+        val bookSilmarillion: Message = setupBookSilmarillion
         val bookPassSilmarillion: Passthrough = mockedKafkaRecord(bookIdSilmarillion.toString, bookSilmarillion.toJson)
 
-        val bookIdHobbit: AggregateId = setupBookIdHobbit
-        val bookHobbitQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdHobbit)
-        val bookHobbit: Aggregate = setupBookHobbit
+        val bookIdHobbit: MessageId = setupBookIdHobbit
+        val bookHobbitQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdHobbit)
+        val bookHobbit: Message = setupBookHobbit
         val bookPassHobbit: Passthrough = mockedKafkaRecord(bookIdHobbit.toString, bookHobbit.toJson)
 
-        val bookIdRings: AggregateId = setupBookIdRings
-        val bookRingsQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdRings)
-        val bookRings: Aggregate = setupBookRings()
+        val bookIdRings: MessageId = setupBookIdRings
+        val bookRingsQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdRings)
+        val bookRings: Message = setupBookRings()
         val bookPassRings: Passthrough = mockedKafkaRecord(bookIdRings.toString, bookRings.toJson)
 
-        val bookIdOrient: AggregateId = setupBookIdOrientExpress
-        val bookOrientQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdOrient)
-        val bookOrient: Aggregate = setupBookOrientExpress
+        val bookIdOrient: MessageId = setupBookIdOrientExpress
+        val bookOrientQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdOrient)
+        val bookOrient: Message = setupBookOrientExpress
         val bookPassOrient: Passthrough = mockedKafkaRecord(bookIdOrient.toString, bookOrient.toJson)
 
-        val bookIdNile: AggregateId = setupBookIdNile
-        val bookNileQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdNile)
-        val bookNile: Aggregate = setupBookNile
+        val bookIdNile: MessageId = setupBookIdNile
+        val bookNileQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdNile)
+        val bookNile: Message = setupBookNile
         val bookPassNile: Passthrough = mockedKafkaRecord(bookIdNile.toString, bookNile.toJson)
 
-        val bookIdComputer: AggregateId = setupBookIdComputer
-        val bookComputerQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdComputer)
-        val bookComputer: Aggregate = setupBookComputer
+        val bookIdComputer: MessageId = setupBookIdComputer
+        val bookComputerQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdComputer)
+        val bookComputer: Message = setupBookComputer
         val bookPassComputer: Passthrough = mockedKafkaRecord(bookIdComputer.toString, bookComputer.toJson)
 
-        val bookIdEasy: AggregateId = setupBookIdEasy
-        val bookEasyQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdEasy)
-        val bookEasy: Aggregate = setupBookEasy
+        val bookIdEasy: MessageId = setupBookIdEasy
+        val bookEasyQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdEasy)
+        val bookEasy: Message = setupBookEasy
         val bookPassEasy: Passthrough = mockedKafkaRecord(bookIdEasy.toString, bookEasy.toJson)
 
-        val shelfIdFiction: AggregateId = setupShelfIdFiction
-        val shelfFictionQaid = QualifiedAggregateId(storageDomain, shelfAggregate, shelfIdFiction)
-        val shelfFiction: Aggregate = setupShelfFiction
+        val shelfIdFiction: MessageId = setupShelfIdFiction
+        val shelfFictionQaid = QualifiedMessageId(storageChannel, shelfMessageFormat, shelfIdFiction)
+        val shelfFiction: Message = setupShelfFiction
         val shelfPassFiction: Passthrough = mockedKafkaRecord(shelfIdFiction.toString, shelfFiction.toJson)
 
-        val shelfIdNonFiction: AggregateId = setupShelfIdNonFiction
-        val shelfNonFictionQaid = QualifiedAggregateId(storageDomain, shelfAggregate, shelfIdNonFiction)
-        val shelfNonFiction: Aggregate = setupShelfNonFiction
+        val shelfIdNonFiction: MessageId = setupShelfIdNonFiction
+        val shelfNonFictionQaid = QualifiedMessageId(storageChannel, shelfMessageFormat, shelfIdNonFiction)
+        val shelfNonFiction: Message = setupShelfNonFiction
         val shelfPassNonFiction: Passthrough = mockedKafkaRecord(shelfIdNonFiction.toString, shelfNonFiction.toJson)
 
-        val receiptIdS1: AggregateId = setupReceiptIdSilmarillion1
-        val receiptS1Qaid = QualifiedAggregateId(storageDomain, receiptAggregate, receiptIdS1)
-        val receiptS1: Aggregate = setupReceiptSilmarillion1
+        val receiptIdS1: MessageId = setupReceiptIdSilmarillion1
+        val receiptS1Qaid = QualifiedMessageId(storageChannel, receiptMessageFormat, receiptIdS1)
+        val receiptS1: Message = setupReceiptSilmarillion1
         val receiptPassS1: Passthrough = mockedKafkaRecord(receiptIdS1.toString, receiptS1.toJson)
 
-        val receiptIdS2: AggregateId = setupReceiptIdSilmarillion2
-        val receiptS2Qaid = QualifiedAggregateId(storageDomain, receiptAggregate, receiptIdS2)
-        val receiptS2: Aggregate = setupReceiptSilmarillion2
+        val receiptIdS2: MessageId = setupReceiptIdSilmarillion2
+        val receiptS2Qaid = QualifiedMessageId(storageChannel, receiptMessageFormat, receiptIdS2)
+        val receiptS2: Message = setupReceiptSilmarillion2
         val receiptPassS2: Passthrough = mockedKafkaRecord(receiptIdS2.toString, receiptS2.toJson)
 
-        val receiptIdE: AggregateId = setupReceiptIdEasy
-        val receiptEQaid = QualifiedAggregateId(storageDomain, receiptAggregate, receiptIdE)
-        val receiptE: Aggregate = setupReceiptEasy
+        val receiptIdE: MessageId = setupReceiptIdEasy
+        val receiptEQaid = QualifiedMessageId(storageChannel, receiptMessageFormat, receiptIdE)
+        val receiptE: Message = setupReceiptEasy
         val receiptPassE: Passthrough = mockedKafkaRecord(receiptIdE.toString, receiptE.toJson)
 
         val relationsConfig = setupRelationsConfig()
@@ -595,9 +597,9 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
                 (Some(receiptEQaid, Some(receiptE)), receiptPassE)
             )
 
-            val outP = src.persistDomainAggregates(stateStore).runToList()
+            val outP = src.persistDomainMessages(stateStore).runToList()
 
-            val out = Flow.fromIterable(outP).linkDomainAggregates(relationsConfig, stateStore).runToList()
+            val out = Flow.fromIterable(outP).linkDomainMessages(relationsConfig, stateStore).runToList()
 
             // then
             assert(out.size == 19)
@@ -655,9 +657,9 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
                 (Some(receiptEQaid, None), mockedEmptyKafkaRecord(receiptIdE.toString))
             )
 
-            val outP = src.persistDomainAggregates(stateStore).runToList()
+            val outP = src.persistDomainMessages(stateStore).runToList()
 
-            val out = Flow.fromIterable(outP).linkDomainAggregates(relationsConfig, stateStore).runToList()
+            val out = Flow.fromIterable(outP).linkDomainMessages(relationsConfig, stateStore).runToList()
 
             // then only the aggregates should be deleted (because the opposite ends of the links are not deleted)
             assert(out.size == 2)
@@ -672,9 +674,9 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
                 (Some(shelfFictionQaid, None), mockedEmptyKafkaRecord(shelfIdFiction.toString))
             )
 
-            val outP = src.persistDomainAggregates(stateStore).runToList()
+            val outP = src.persistDomainMessages(stateStore).runToList()
 
-            val out = Flow.fromIterable(outP).linkDomainAggregates(relationsConfig, stateStore).runToList()
+            val out = Flow.fromIterable(outP).linkDomainMessages(relationsConfig, stateStore).runToList()
 
             // then the aggregate (Shelf FI) and its relation to the aggregate deleted before (Receipt S1) should be removed
             assert(out.size == 1)
@@ -704,9 +706,9 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
                 (Some(receiptS2Qaid, None), mockedEmptyKafkaRecord(receiptIdS2.toString))
             )
 
-            val outP = src.persistDomainAggregates(stateStore).runToList()
+            val outP = src.persistDomainMessages(stateStore).runToList()
 
-            val out = Flow.fromIterable(outP).linkDomainAggregates(relationsConfig, stateStore).runToList()
+            val out = Flow.fromIterable(outP).linkDomainMessages(relationsConfig, stateStore).runToList()
 
             // the state store should be emptied
             assert(out.size == 16)

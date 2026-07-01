@@ -1,11 +1,11 @@
 package de.otto.anthology.config
 
-import de.otto.anthology.AggregateName
-import de.otto.anthology.DomainName
+import de.otto.anthology.ChannelName
+import de.otto.anthology.MessageFormatName
 
-case class DomainRelationConfigs(relations: Seq[DomainRelationConfig]):
-    val manyToOneRelationsStartingFrom: Map[(DomainName, AggregateName), Set[ManyToOne]] =
-        val result = scala.collection.mutable.Map[(DomainName, AggregateName), Set[ManyToOne]]()
+case class RelationConfigs(relations: Seq[RelationConfig]):
+    val manyToOneRelationsStartingFrom: Map[(ChannelName, MessageFormatName), Set[ManyToOne]] =
+        val result = scala.collection.mutable.Map[(ChannelName, MessageFormatName), Set[ManyToOne]]()
         relations
             .collect:
                 case mto: ManyToOne =>
@@ -14,8 +14,8 @@ case class DomainRelationConfigs(relations: Seq[DomainRelationConfig]):
                     result.update(mto.relFrom, newSet)
         result.toMap
 
-    val oneToManyRelationsLeadingTo: Map[(DomainName, AggregateName), Set[OneToMany]] =
-        val result = scala.collection.mutable.Map[(DomainName, AggregateName), Set[OneToMany]]()
+    val oneToManyRelationsLeadingTo: Map[(ChannelName, MessageFormatName), Set[OneToMany]] =
+        val result = scala.collection.mutable.Map[(ChannelName, MessageFormatName), Set[OneToMany]]()
         relations
             .collect:
                 case otm: OneToMany =>
@@ -24,11 +24,11 @@ case class DomainRelationConfigs(relations: Seq[DomainRelationConfig]):
                     result.update(otm.relTo, newSet)
         result.toMap
 
-    val root: (DomainName, AggregateName) =
-        val all: Set[(DomainName, AggregateName)] =
+    val root: (ChannelName, MessageFormatName) =
+        val all: Set[(ChannelName, MessageFormatName)] =
             relations.flatMap(rel => Seq(rel.relFrom, rel.relTo)).toSet
-        val to: Set[(DomainName, AggregateName)] = relations.map(rel => rel.relTo).toSet
-        val roots: Set[(DomainName, AggregateName)] = all -- to
+        val to: Set[(ChannelName, MessageFormatName)] = relations.map(rel => rel.relTo).toSet
+        val roots: Set[(ChannelName, MessageFormatName)] = all -- to
         if roots.isEmpty then throw new IllegalArgumentException("Possible misconfiguration: no root configured")
         else if roots.size > 1 then
             throw new IllegalArgumentException(

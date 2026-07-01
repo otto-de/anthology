@@ -1,17 +1,17 @@
 package de.otto.anthology
 
 import com.fasterxml.jackson.databind.JsonNode
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
-import de.otto.anthology.CodomainCompositionStage.composeCodomainAggregates
+import de.otto.anthology.CodomainCompositionStage.composeCodomainMessages
 import de.otto.anthology.CodomainDeduplicationConfig
-import de.otto.anthology.CodomainDeduplicationStage.deduplicateCodomainAggregates
-import de.otto.anthology.CodomainInliningStage.inlineDomainAggregates
-import de.otto.anthology.CodomainTriggeringStage.triggerAffectedCodomainAggregates
-import de.otto.anthology.DomainLinkingStage.linkDomainAggregates
-import de.otto.anthology.DomainPersistenceStage.persistDomainAggregates
+import de.otto.anthology.CodomainDeduplicationStage.deduplicateCodomainMessages
+import de.otto.anthology.CodomainInliningStage.inlineDomainMessages
+import de.otto.anthology.CodomainTriggeringStage.triggerAffectedCodomainMessages
+import de.otto.anthology.DomainLinkingStage.linkDomainMessages
+import de.otto.anthology.DomainPersistenceStage.persistDomainMessages
 import de.otto.anthology.JsonSupport.mapper
-import de.otto.anthology.QualifiedAggregateId
+import de.otto.anthology.Message
+import de.otto.anthology.MessageId
+import de.otto.anthology.QualifiedMessageId
 import de.otto.anthology.TestData.*
 import de.otto.anthology.TestUtils.InMemoryStateStore
 import de.otto.anthology.TestUtils.mockedEmptyKafkaRecord
@@ -31,100 +31,100 @@ class CodomainInliningStageTest extends AnyFlatSpec, Matchers, Diagrams:
         // given
         val stateStore = InMemoryStateStore()
 
-        val categoryIdFantasy: AggregateId = setupCategoryIdFantasy
-        val categoryFantasyQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdFantasy)
-        val categoryFantasy: Aggregate = setupCategoryFantasy
+        val categoryIdFantasy: MessageId = setupCategoryIdFantasy
+        val categoryFantasyQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdFantasy)
+        val categoryFantasy: Message = setupCategoryFantasy
         val categoryPassFantasy: Passthrough = mockedKafkaRecord(categoryIdFantasy.toString, categoryFantasy.toJson)
 
-        val categoryIdMystery: AggregateId = setupCategoryIdMystery
-        val categoryMysteryQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdMystery)
-        val categoryMystery: Aggregate = setupCategoryMystery
+        val categoryIdMystery: MessageId = setupCategoryIdMystery
+        val categoryMysteryQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdMystery)
+        val categoryMystery: Message = setupCategoryMystery
         val categoryPassMystery: Passthrough = mockedKafkaRecord(categoryIdMystery.toString, categoryMystery.toJson)
 
-        val categoryIdScientific: AggregateId = setupCategoryIdScientific
-        val categoryScientificQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdScientific)
-        val categoryScientific: Aggregate = setupCategoryScientific
+        val categoryIdScientific: MessageId = setupCategoryIdScientific
+        val categoryScientificQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdScientific)
+        val categoryScientific: Message = setupCategoryScientific
         val categoryPassScientific: Passthrough =
             mockedKafkaRecord(categoryIdScientific.toString, categoryScientific.toJson)
 
-        val authorIdTolkien: AggregateId = setupAuthorIdTolkien
-        val authorTolkienQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdTolkien)
-        val authorTolkien: Aggregate = setupAuthorTolkien
+        val authorIdTolkien: MessageId = setupAuthorIdTolkien
+        val authorTolkienQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdTolkien)
+        val authorTolkien: Message = setupAuthorTolkien
         val authorPassTolkien: Passthrough = mockedKafkaRecord(authorIdTolkien.toString, authorTolkien.toJson)
 
-        val authorIdChristie: AggregateId = setupAuthorIdChristie
-        val authorChristieQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdChristie)
-        val authorChristie: Aggregate = setupAuthorCristie
+        val authorIdChristie: MessageId = setupAuthorIdChristie
+        val authorChristieQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdChristie)
+        val authorChristie: Message = setupAuthorCristie
         val authorPassChristie: Passthrough = mockedKafkaRecord(authorIdChristie.toString, authorChristie.toJson)
 
-        val authorIdKnuth: AggregateId = setupAuthorIdKnuth
-        val authorKnuthQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdKnuth)
-        val authorKnuth: Aggregate = setupAuthorKnuth
+        val authorIdKnuth: MessageId = setupAuthorIdKnuth
+        val authorKnuthQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdKnuth)
+        val authorKnuth: Message = setupAuthorKnuth
         val authorPassKnuth: Passthrough = mockedKafkaRecord(authorIdKnuth.toString, authorKnuth.toJson)
 
-        val authorIdFeynman: AggregateId = setupAuthorIdFeynman
-        val authorFeynmanQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdFeynman)
-        val authorFeynman: Aggregate = setupAuthorFeynman
+        val authorIdFeynman: MessageId = setupAuthorIdFeynman
+        val authorFeynmanQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdFeynman)
+        val authorFeynman: Message = setupAuthorFeynman
         val authorPassFeynman: Passthrough = mockedKafkaRecord(authorIdFeynman.toString, authorFeynman.toJson)
 
-        val bookIdSilmarillion: AggregateId = setupBookIdSilmarillion
-        val bookSilmarillionQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdSilmarillion)
-        val bookSilmarillion: Aggregate = setupBookSilmarillion
+        val bookIdSilmarillion: MessageId = setupBookIdSilmarillion
+        val bookSilmarillionQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdSilmarillion)
+        val bookSilmarillion: Message = setupBookSilmarillion
         val bookPassSilmarillion: Passthrough = mockedKafkaRecord(bookIdSilmarillion.toString, bookSilmarillion.toJson)
 
-        val bookIdHobbit: AggregateId = setupBookIdHobbit
-        val bookHobbitQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdHobbit)
-        val bookHobbit: Aggregate = setupBookHobbit
+        val bookIdHobbit: MessageId = setupBookIdHobbit
+        val bookHobbitQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdHobbit)
+        val bookHobbit: Message = setupBookHobbit
         val bookPassHobbit: Passthrough = mockedKafkaRecord(bookIdHobbit.toString, bookHobbit.toJson)
 
-        val bookIdRings: AggregateId = setupBookIdRings
-        val bookRingsQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdRings)
-        val bookRings: Aggregate = setupBookRings()
+        val bookIdRings: MessageId = setupBookIdRings
+        val bookRingsQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdRings)
+        val bookRings: Message = setupBookRings()
         val bookPassRings: Passthrough = mockedKafkaRecord(bookIdRings.toString, bookRings.toJson)
 
-        val bookIdOrient: AggregateId = setupBookIdOrientExpress
-        val bookOrientQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdOrient)
-        val bookOrient: Aggregate = setupBookOrientExpress
+        val bookIdOrient: MessageId = setupBookIdOrientExpress
+        val bookOrientQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdOrient)
+        val bookOrient: Message = setupBookOrientExpress
         val bookPassOrient: Passthrough = mockedKafkaRecord(bookIdOrient.toString, bookOrient.toJson)
 
-        val bookIdNile: AggregateId = setupBookIdNile
-        val bookNileQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdNile)
-        val bookNile: Aggregate = setupBookNile
+        val bookIdNile: MessageId = setupBookIdNile
+        val bookNileQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdNile)
+        val bookNile: Message = setupBookNile
         val bookPassNile: Passthrough = mockedKafkaRecord(bookIdNile.toString, bookNile.toJson)
 
-        val bookIdComputer: AggregateId = setupBookIdComputer
-        val bookComputerQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdComputer)
-        val bookComputer: Aggregate = setupBookComputer
+        val bookIdComputer: MessageId = setupBookIdComputer
+        val bookComputerQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdComputer)
+        val bookComputer: Message = setupBookComputer
         val bookPassComputer: Passthrough = mockedKafkaRecord(bookIdComputer.toString, bookComputer.toJson)
 
-        val bookIdEasy: AggregateId = setupBookIdEasy
-        val bookEasyQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookIdEasy)
-        val bookEasy: Aggregate = setupBookEasy
+        val bookIdEasy: MessageId = setupBookIdEasy
+        val bookEasyQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookIdEasy)
+        val bookEasy: Message = setupBookEasy
         val bookPassEasy: Passthrough = mockedKafkaRecord(bookIdEasy.toString, bookEasy.toJson)
 
-        val shelfIdFiction: AggregateId = setupShelfIdFiction
-        val shelfFictionQaid = QualifiedAggregateId(storageDomain, shelfAggregate, shelfIdFiction)
-        val shelfFiction: Aggregate = setupShelfFiction
+        val shelfIdFiction: MessageId = setupShelfIdFiction
+        val shelfFictionQaid = QualifiedMessageId(storageChannel, shelfMessageFormat, shelfIdFiction)
+        val shelfFiction: Message = setupShelfFiction
         val shelfPassFiction: Passthrough = mockedKafkaRecord(shelfIdFiction.toString, shelfFiction.toJson)
 
-        val shelfIdNonFiction: AggregateId = setupShelfIdNonFiction
-        val shelfNonFictionQaid = QualifiedAggregateId(storageDomain, shelfAggregate, shelfIdNonFiction)
-        val shelfNonFiction: Aggregate = setupShelfNonFiction
+        val shelfIdNonFiction: MessageId = setupShelfIdNonFiction
+        val shelfNonFictionQaid = QualifiedMessageId(storageChannel, shelfMessageFormat, shelfIdNonFiction)
+        val shelfNonFiction: Message = setupShelfNonFiction
         val shelfPassNonFiction: Passthrough = mockedKafkaRecord(shelfIdNonFiction.toString, shelfNonFiction.toJson)
 
-        val receiptIdS1: AggregateId = setupReceiptIdSilmarillion1
-        val receiptS1Qaid = QualifiedAggregateId(storageDomain, receiptAggregate, receiptIdS1)
-        val receiptS1: Aggregate = setupReceiptSilmarillion1
+        val receiptIdS1: MessageId = setupReceiptIdSilmarillion1
+        val receiptS1Qaid = QualifiedMessageId(storageChannel, receiptMessageFormat, receiptIdS1)
+        val receiptS1: Message = setupReceiptSilmarillion1
         val receiptPassS1: Passthrough = mockedKafkaRecord(receiptIdS1.toString, receiptS1.toJson)
 
-        val receiptIdS2: AggregateId = setupReceiptIdSilmarillion2
-        val receiptS2Qaid = QualifiedAggregateId(storageDomain, receiptAggregate, receiptIdS2)
-        val receiptS2: Aggregate = setupReceiptSilmarillion2
+        val receiptIdS2: MessageId = setupReceiptIdSilmarillion2
+        val receiptS2Qaid = QualifiedMessageId(storageChannel, receiptMessageFormat, receiptIdS2)
+        val receiptS2: Message = setupReceiptSilmarillion2
         val receiptPassS2: Passthrough = mockedKafkaRecord(receiptIdS2.toString, receiptS2.toJson)
 
-        val receiptIdE: AggregateId = setupReceiptIdEasy
-        val receiptEQaid = QualifiedAggregateId(storageDomain, receiptAggregate, receiptIdE)
-        val receiptE: Aggregate = setupReceiptEasy
+        val receiptIdE: MessageId = setupReceiptIdEasy
+        val receiptEQaid = QualifiedMessageId(storageChannel, receiptMessageFormat, receiptIdE)
+        val receiptE: Message = setupReceiptEasy
         val receiptPassE: Passthrough = mockedKafkaRecord(receiptIdE.toString, receiptE.toJson)
 
         val relationsConfig = setupRelationsConfig()
@@ -152,16 +152,16 @@ class CodomainInliningStageTest extends AnyFlatSpec, Matchers, Diagrams:
                 (Some(receiptEQaid, Some(receiptE)), receiptPassE)
             )
 
-            src.persistDomainAggregates(stateStore)
-                .linkDomainAggregates(relationsConfig, stateStore)
-                .triggerAffectedCodomainAggregates(relationsConfig, stateStore)
-                .deduplicateCodomainAggregates(Some(CodomainDeduplicationConfig(1, 50.millis)))
-                .composeCodomainAggregates(stateStore)
+            src.persistDomainMessages(stateStore)
+                .linkDomainMessages(relationsConfig, stateStore)
+                .triggerAffectedCodomainMessages(relationsConfig, stateStore)
+                .deduplicateCodomainMessages(Some(CodomainDeduplicationConfig(1, 50.millis)))
+                .composeCodomainMessages(stateStore)
                 .runDrain()
 
             val out =
                 Flow.fromValues((Seq(bookIdSilmarillion), Seq(bookPassSilmarillion)))
-                    .inlineDomainAggregates(relationsConfig, stateStore)
+                    .inlineDomainMessages(relationsConfig, stateStore)
                     .runToList()
                     .flatMap(_._1)
                     .map(_._2)
@@ -233,7 +233,7 @@ class CodomainInliningStageTest extends AnyFlatSpec, Matchers, Diagrams:
         { // when
             val out =
                 Flow.fromValues((Seq(bookIdComputer), Seq(bookPassComputer)))
-                    .inlineDomainAggregates(relationsConfig, stateStore)
+                    .inlineDomainMessages(relationsConfig, stateStore)
                     .runToList()
                     .flatMap(_._1)
                     .map(_._2)
@@ -279,7 +279,7 @@ class CodomainInliningStageTest extends AnyFlatSpec, Matchers, Diagrams:
         { // when
             val out =
                 Flow.fromValues((Seq.empty, Seq(mockedEmptyKafkaRecord(id = "123"))))
-                    .inlineDomainAggregates(relationsConfig, stateStore)
+                    .inlineDomainMessages(relationsConfig, stateStore)
                     .runToList()
                     .flatMap(_._1)
                     .map(_._2)
@@ -293,67 +293,67 @@ class CodomainInliningStageTest extends AnyFlatSpec, Matchers, Diagrams:
         // given
         val stateStore = InMemoryStateStore()
 
-        val categoryIdFantasy: AggregateId = setupCategoryIdFantasy
-        val categoryFantasyQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdFantasy)
-        val categoryFantasy: Aggregate = setupCategoryFantasy
+        val categoryIdFantasy: MessageId = setupCategoryIdFantasy
+        val categoryFantasyQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdFantasy)
+        val categoryFantasy: Message = setupCategoryFantasy
         val categoryPassFantasy: Passthrough = mockedKafkaRecord(categoryIdFantasy.toString, categoryFantasy.toJson)
 
-        val categoryIdMystery: AggregateId = setupCategoryIdMystery
-        val categoryMysteryQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdMystery)
-        val categoryMystery: Aggregate = setupCategoryMystery
+        val categoryIdMystery: MessageId = setupCategoryIdMystery
+        val categoryMysteryQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdMystery)
+        val categoryMystery: Message = setupCategoryMystery
         val categoryPassMystery: Passthrough = mockedKafkaRecord(categoryIdMystery.toString, categoryMystery.toJson)
 
-        val categoryIdScientific: AggregateId = setupCategoryIdScientific
-        val categoryScientificQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryIdScientific)
-        val categoryScientific: Aggregate = setupCategoryScientific
+        val categoryIdScientific: MessageId = setupCategoryIdScientific
+        val categoryScientificQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryIdScientific)
+        val categoryScientific: Message = setupCategoryScientific
         val categoryPassScientific: Passthrough =
             mockedKafkaRecord(categoryIdScientific.toString, categoryScientific.toJson)
 
-        val authorIdTolkien: AggregateId = setupAuthorIdTolkien
-        val authorTolkienQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdTolkien)
-        val authorTolkien: Aggregate = setupAuthorTolkien
+        val authorIdTolkien: MessageId = setupAuthorIdTolkien
+        val authorTolkienQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdTolkien)
+        val authorTolkien: Message = setupAuthorTolkien
         val authorPassTolkien: Passthrough = mockedKafkaRecord(authorIdTolkien.toString, authorTolkien.toJson)
 
-        val authorIdChristie: AggregateId = setupAuthorIdChristie
-        val authorChristieQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdChristie)
-        val authorChristie: Aggregate = setupAuthorCristie
+        val authorIdChristie: MessageId = setupAuthorIdChristie
+        val authorChristieQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdChristie)
+        val authorChristie: Message = setupAuthorCristie
         val authorPassChristie: Passthrough = mockedKafkaRecord(authorIdChristie.toString, authorChristie.toJson)
 
-        val authorIdKnuth: AggregateId = setupAuthorIdKnuth
-        val authorKnuthQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdKnuth)
-        val authorKnuth: Aggregate = setupAuthorKnuth
+        val authorIdKnuth: MessageId = setupAuthorIdKnuth
+        val authorKnuthQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdKnuth)
+        val authorKnuth: Message = setupAuthorKnuth
         val authorPassKnuth: Passthrough = mockedKafkaRecord(authorIdKnuth.toString, authorKnuth.toJson)
 
-        val authorIdFeynman: AggregateId = setupAuthorIdFeynman
-        val authorFeynmanQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorIdFeynman)
-        val authorFeynman: Aggregate = setupAuthorFeynman
+        val authorIdFeynman: MessageId = setupAuthorIdFeynman
+        val authorFeynmanQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorIdFeynman)
+        val authorFeynman: Message = setupAuthorFeynman
         val authorPassFeynman: Passthrough = mockedKafkaRecord(authorIdFeynman.toString, authorFeynman.toJson)
 
-        val bookIdSilmarillion: AggregateId = setupBookIdSilmarillion
+        val bookIdSilmarillion: MessageId = setupBookIdSilmarillion
 
-        val shelfIdFiction: AggregateId = setupShelfIdFiction
-        val shelfFictionQaid = QualifiedAggregateId(storageDomain, shelfAggregate, shelfIdFiction)
-        val shelfFiction: Aggregate = setupShelfFiction
+        val shelfIdFiction: MessageId = setupShelfIdFiction
+        val shelfFictionQaid = QualifiedMessageId(storageChannel, shelfMessageFormat, shelfIdFiction)
+        val shelfFiction: Message = setupShelfFiction
         val shelfPassFiction: Passthrough = mockedKafkaRecord(shelfIdFiction.toString, shelfFiction.toJson)
 
-        val shelfIdNonFiction: AggregateId = setupShelfIdNonFiction
-        val shelfNonFictionQaid = QualifiedAggregateId(storageDomain, shelfAggregate, shelfIdNonFiction)
-        val shelfNonFiction: Aggregate = setupShelfNonFiction
+        val shelfIdNonFiction: MessageId = setupShelfIdNonFiction
+        val shelfNonFictionQaid = QualifiedMessageId(storageChannel, shelfMessageFormat, shelfIdNonFiction)
+        val shelfNonFiction: Message = setupShelfNonFiction
         val shelfPassNonFiction: Passthrough = mockedKafkaRecord(shelfIdNonFiction.toString, shelfNonFiction.toJson)
 
-        val receiptIdS1: AggregateId = setupReceiptIdSilmarillion1
-        val receiptS1Qaid = QualifiedAggregateId(storageDomain, receiptAggregate, receiptIdS1)
-        val receiptS1: Aggregate = setupReceiptSilmarillion1
+        val receiptIdS1: MessageId = setupReceiptIdSilmarillion1
+        val receiptS1Qaid = QualifiedMessageId(storageChannel, receiptMessageFormat, receiptIdS1)
+        val receiptS1: Message = setupReceiptSilmarillion1
         val receiptPassS1: Passthrough = mockedKafkaRecord(receiptIdS1.toString, receiptS1.toJson)
 
-        val receiptIdS2: AggregateId = setupReceiptIdSilmarillion2
-        val receiptS2Qaid = QualifiedAggregateId(storageDomain, receiptAggregate, receiptIdS2)
-        val receiptS2: Aggregate = setupReceiptSilmarillion2
+        val receiptIdS2: MessageId = setupReceiptIdSilmarillion2
+        val receiptS2Qaid = QualifiedMessageId(storageChannel, receiptMessageFormat, receiptIdS2)
+        val receiptS2: Message = setupReceiptSilmarillion2
         val receiptPassS2: Passthrough = mockedKafkaRecord(receiptIdS2.toString, receiptS2.toJson)
 
-        val receiptIdE: AggregateId = setupReceiptIdEasy
-        val receiptEQaid = QualifiedAggregateId(storageDomain, receiptAggregate, receiptIdE)
-        val receiptE: Aggregate = setupReceiptEasy
+        val receiptIdE: MessageId = setupReceiptIdEasy
+        val receiptEQaid = QualifiedMessageId(storageChannel, receiptMessageFormat, receiptIdE)
+        val receiptE: Message = setupReceiptEasy
         val receiptPassE: Passthrough = mockedKafkaRecord(receiptIdE.toString, receiptE.toJson)
 
         val relationsConfig = setupRelationsConfig()
@@ -374,16 +374,16 @@ class CodomainInliningStageTest extends AnyFlatSpec, Matchers, Diagrams:
             (Some(receiptEQaid, Some(receiptE)), receiptPassE)
         )
 
-        src.persistDomainAggregates(stateStore)
-            .linkDomainAggregates(relationsConfig, stateStore)
-            .triggerAffectedCodomainAggregates(relationsConfig, stateStore)
-            .deduplicateCodomainAggregates(Some(CodomainDeduplicationConfig(1, 50.millis)))
-            .composeCodomainAggregates(stateStore)
+        src.persistDomainMessages(stateStore)
+            .linkDomainMessages(relationsConfig, stateStore)
+            .triggerAffectedCodomainMessages(relationsConfig, stateStore)
+            .deduplicateCodomainMessages(Some(CodomainDeduplicationConfig(1, 50.millis)))
+            .composeCodomainMessages(stateStore)
             .runDrain()
 
         val out =
             Flow.fromValues((Seq(bookIdSilmarillion), Seq(receiptPassS1)))
-                .inlineDomainAggregates(relationsConfig, stateStore)
+                .inlineDomainMessages(relationsConfig, stateStore)
                 .runToList()
                 .map(_._1)
                 .head

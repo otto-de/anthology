@@ -1,12 +1,12 @@
 package de.otto.anthology
 
 import com.typesafe.scalalogging.LazyLogging
-import de.otto.anthology.AggregateId
-import de.otto.anthology.AggregateName
-import de.otto.anthology.DomainName
+import de.otto.anthology.ChannelName
+import de.otto.anthology.MessageFormatName
+import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
-import de.otto.anthology.QualifiedAggregateId
-import de.otto.anthology.config.DomainRelationConfigs
+import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -17,24 +17,24 @@ import scala.util.control.NonFatal
 
 object CodomainTriggeringStage extends LazyLogging:
 
-    // TODO currently we identify affected root agregates based on the new state.
-    // - How can we identify roots of aggregates which lost references?
-    // - How can we identify roots of deleted aggregates?
+    // TODO currently we identify affected roots based on the new state.
+    // - How can we identify roots of messages which lost references?
+    // - How can we identify roots of deleted messages?
 
-    extension (in: Flow[(Option[QualifiedAggregateId], Passthrough)])
+    extension (in: Flow[(Option[QualifiedMessageId], Passthrough)])
 
-        def triggerAffectedCodomainAggregates(
-            config: DomainRelationConfigs,
+        def triggerAffectedCodomainMessages(
+            config: RelationConfigs,
             stateStore: StateStore,
             parallelism: Parallelism = Parallelism(1)
-        ): Flow[(Option[(QualifiedAggregateId, Set[AggregateId])], Passthrough)] =
+        ): Flow[(Option[(QualifiedMessageId, Set[MessageId])], Passthrough)] =
             in.mapPar(parallelism.toInt):
                 case (None, pass) =>
                     (None, pass)
-                case (Some(qaid), pass) =>
+                case (Some(qmid), pass) =>
                     try
-                        val aggregateRootIds = identify(qaid, config, stateStore)
-                        (Some(qaid, aggregateRootIds), pass)
+                        val rootIds = identifyAffected(qmid, config, stateStore)
+                        (Some(qmid, rootIds), pass)
                     catch
                         case NonFatal(ex) =>
                             logger.error(
@@ -42,22 +42,22 @@ object CodomainTriggeringStage extends LazyLogging:
                             )
                             (None, pass)
 
-    private def identify(
-        currentDomainAggregateId: QualifiedAggregateId,
-        config: DomainRelationConfigs,
+    private def identifyAffected(
+        currentDomainMessageId: QualifiedMessageId,
+        config: RelationConfigs,
         stateStore: StateStore
-    ): Set[AggregateId] =
-        if currentDomainAggregateId.qualifier == config.root then Set(currentDomainAggregateId.id)
+    ): Set[MessageId] =
+        if currentDomainMessageId.qualifier == config.root then Set(currentDomainMessageId.id)
         else
-            val next: Set[QualifiedAggregateId] =
+            val next: Set[QualifiedMessageId] =
                 stateStore
-                    .getStringSet(s"${StateStoreSection.BLK}/$currentDomainAggregateId")
+                    .getStringSet(s"${StateStoreSection.BLK}/$currentDomainMessageId")
                     .map: entry =>
                         val splittedEntry = entry.split("/")
-                        QualifiedAggregateId(
-                            DomainName(splittedEntry(0)),
-                            AggregateName(splittedEntry(1)),
-                            AggregateId(splittedEntry(2))
+                        QualifiedMessageId(
+                            ChannelName(splittedEntry(0)),
+                            MessageFormatName(splittedEntry(1)),
+                            MessageId(splittedEntry(2))
                         )
-            next.flatMap: nextAggregateId =>
-                identify(nextAggregateId, config, stateStore)
+            next.flatMap: nextMessageId =>
+                identifyAffected(nextMessageId, config, stateStore)

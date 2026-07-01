@@ -1,7 +1,7 @@
 package de.otto.anthology.statestore
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import de.otto.anthology.AggregateId
+import de.otto.anthology.MessageId
 import de.otto.anthology.statestore.RocksDBConfig
 import de.otto.anthology.statestore.RocksDBStateStore
 import org.scalatest.BeforeAndAfterEach
@@ -49,7 +49,7 @@ class RocksDBStateStoreTest extends AnyFlatSpec, Matchers, Diagrams, BeforeAndAf
         deleteDirectoryRecursively(tmpFile.toPath)
 
     "RocksDBStateStore" should "perform get and put" in:
-        val aggId = AggregateId("id-123")
+        val aggId = MessageId("id-123")
         val jsonStr = """{"key":"value"}"""
 
         stateStore.getJson(aggId.toString) shouldBe None

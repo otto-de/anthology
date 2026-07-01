@@ -1,21 +1,21 @@
 package de.otto.anthology
 
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
 import de.otto.anthology.JsonSupport.mapper
-import de.otto.anthology.KafkaSink.emit
+import de.otto.anthology.KafkaSink.emitCodomainMessages
 import de.otto.anthology.KafkaSinkConfig
 import de.otto.anthology.KafkaSinkSettings
 import de.otto.anthology.KafkaSource
 import de.otto.anthology.KafkaSourceConfig
 import de.otto.anthology.KafkaSourceSettings
+import de.otto.anthology.Message
+import de.otto.anthology.MessageId
 import de.otto.anthology.config.KafkaClusterConfig
 import de.otto.anthology.config.KafkaClusterSettings
-import de.otto.anthology.kafka.AggregateDeserializer
-import de.otto.anthology.kafka.AggregateIdDeserializer
 import de.otto.anthology.kafka.ClusterName
 import de.otto.anthology.kafka.ConsumerMap
 import de.otto.anthology.kafka.ConsumerName
+import de.otto.anthology.kafka.MessageDeserializer
+import de.otto.anthology.kafka.MessageIdDeserializer
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.kafka.TopicName
 import io.github.embeddedkafka.EmbeddedKafka
@@ -69,8 +69,8 @@ class KafkaSinkTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, Befo
             ConsumerSettings
                 .default(group)
                 .bootstrapServers(bootstrapServer.split(",").map(_.trim)*)
-                .keyDeserializer(AggregateIdDeserializer)
-                .valueDeserializer(AggregateDeserializer)
+                .keyDeserializer(MessageIdDeserializer)
+                .valueDeserializer(MessageDeserializer)
                 .autoOffsetReset(AutoOffsetReset.Earliest)
 
         val sourceConfigA = KafkaSourceConfig(cluster, topicA, group)
@@ -148,13 +148,13 @@ class KafkaSinkTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, Befo
 
                 // setup output - publishing and committing
                 val payloads1 = Seq(
-                    (AggregateId(messageIdT1), Some(Aggregate(mapper.readTree(messageT1))), None),
-                    (AggregateId(messageIdT2), Some(Aggregate(mapper.readTree(messageT2))), None)
+                    (MessageId(messageIdT1), Some(Message(mapper.readTree(messageT1))), None),
+                    (MessageId(messageIdT2), Some(Message(mapper.readTree(messageT2))), None)
                 )
                 val payloads2 = Seq(
-                    (AggregateId(messageIdT3), Some(Aggregate(mapper.readTree(messageT3))), None),
-                    (AggregateId(messageIdT4), Some(Aggregate(mapper.readTree(messageT4))), None),
-                    (AggregateId(messageIdT5), Some(Aggregate(mapper.readTree(messageT5))), None)
+                    (MessageId(messageIdT3), Some(Message(mapper.readTree(messageT3))), None),
+                    (MessageId(messageIdT4), Some(Message(mapper.readTree(messageT4))), None),
+                    (MessageId(messageIdT5), Some(Message(mapper.readTree(messageT5))), None)
                 )
                 val passthroughs1 = Seq(
                     inputChannelA.receive()
@@ -164,7 +164,7 @@ class KafkaSinkTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, Befo
                     inputChannelC.receive()
                 )
 
-                val outputFlow: Flow[(Seq[(AggregateId, Option[Aggregate], Option[Headers])], Seq[Passthrough])] =
+                val outputFlow: Flow[(Seq[(MessageId, Option[Message], Option[Headers])], Seq[Passthrough])] =
                     Flow.fromValues(
                         (payloads1, passthroughs1),
                         (payloads2, passthroughs2)
@@ -172,7 +172,7 @@ class KafkaSinkTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, Befo
 
                 // run the sink
                 forkDiscard:
-                    outputFlow.emit(KafkaSinkSettings(sinkConfig, clusterSettings, consumers))
+                    outputFlow.emitCodomainMessages(KafkaSinkSettings(sinkConfig, clusterSettings, consumers))
 
                 // then (1) - check publishing
                 // Can we find the expected messages on the target topic?
@@ -225,12 +225,12 @@ class KafkaSinkTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, Befo
                 )
 
                 val expectedKeys = Set(
-                    AggregateId(messageIdA2),
-                    AggregateId(messageIdB2),
-                    AggregateId(messageIdC2),
-                    AggregateId(messageIdA3),
-                    AggregateId(messageIdB3),
-                    AggregateId(messageIdC3)
+                    MessageId(messageIdA2),
+                    MessageId(messageIdB2),
+                    MessageId(messageIdC2),
+                    MessageId(messageIdA3),
+                    MessageId(messageIdB3),
+                    MessageId(messageIdC3)
                 )
 
                 assert(consumedKeys == expectedKeys)

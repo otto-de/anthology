@@ -1,11 +1,7 @@
 package de.otto.anthology.config
 
-import de.otto.anthology.AggregateName
-import de.otto.anthology.DomainName
-import de.otto.anthology.KafkaSourceConfig
+import de.otto.anthology.ChannelName
 import pureconfig.ConfigReader
 
-case class DomainConfig(name: DomainName, kafka: KafkaSourceConfig, aggregates: Seq[AggregateConfig])
-    derives ConfigReader:
-
-    val aggregatesByName: Map[AggregateName, AggregateConfig] = aggregates.map(a => (a.name, a)).toMap
+case class DomainConfig(channels: Seq[ChannelConfig], relations: Seq[RelationConfig]) derives ConfigReader:
+    val channelsByName: Map[ChannelName, ChannelConfig] = channels.map(c => (c.name, c)).toMap

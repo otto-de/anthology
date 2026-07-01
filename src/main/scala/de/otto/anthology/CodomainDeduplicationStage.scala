@@ -1,7 +1,7 @@
 package de.otto.anthology
 
-import de.otto.anthology.AggregateId
-import de.otto.anthology.QualifiedAggregateId
+import de.otto.anthology.MessageId
+import de.otto.anthology.QualifiedMessageId
 import de.otto.anthology.kafka.Passthrough
 import ox.flow.Flow
 import pureconfig.ConfigReader
@@ -14,25 +14,25 @@ object CodomainDeduplicationStage:
 
     private def defaultConfig: CodomainDeduplicationConfig = CodomainDeduplicationConfig(1000, 20.seconds)
 
-    extension (in: Flow[(Option[(QualifiedAggregateId, Set[AggregateId])], Passthrough)])
-        def deduplicateCodomainAggregates(
+    extension (in: Flow[(Option[(QualifiedMessageId, Set[MessageId])], Passthrough)])
+        def deduplicateCodomainMessages(
             configOpt: Option[CodomainDeduplicationConfig]
-        ): Flow[(Seq[(QualifiedAggregateId, Seq[AggregateId])], Seq[Passthrough])] =
+        ): Flow[(Seq[(QualifiedMessageId, Seq[MessageId])], Seq[Passthrough])] =
             val config = configOpt.getOrElse(defaultConfig)
             in
                 .groupedWithin(config.batchSize, config.batchingDuration)
                 .map: batches =>
                     val passthroughs: ListBuffer[Passthrough] = ListBuffer.empty
-                    val deduplicationMap: MutableMap[QualifiedAggregateId, Set[AggregateId]] = MutableMap.empty
+                    val deduplicationMap: MutableMap[QualifiedMessageId, Set[MessageId]] = MutableMap.empty
                     batches.foreach: batch =>
                         batch._1 match
                             case None =>
                                 ()
-                            case Some(domainAggregateId, codomainAggregateIds) =>
-                                deduplicationMap.updateWith(domainAggregateId):
-                                    case None => Some(Set.empty ++ codomainAggregateIds)
-                                    case Some(curCodomainAggregateIds) =>
-                                        Some(curCodomainAggregateIds ++ codomainAggregateIds)
+                            case Some(domainMessageId, codomainMessageIds) =>
+                                deduplicationMap.updateWith(domainMessageId):
+                                    case None => Some(Set.empty ++ codomainMessageIds)
+                                    case Some(curCodomainMessageIds) =>
+                                        Some(curCodomainMessageIds ++ codomainMessageIds)
                         passthroughs += batch._2
                     (deduplicationMap.map((k, v) => (k, v.toSeq)).toSeq, passthroughs.sorted.toSeq)
 

@@ -2,9 +2,9 @@ package de.otto.anthology.transformation
 
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.typesafe.scalalogging.LazyLogging
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
 import de.otto.anthology.JsonSupport.mapper
+import de.otto.anthology.Message
+import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
@@ -20,15 +20,15 @@ object CodomainTransformationStage extends LazyLogging:
 
     private val specTypeRef: TypeReference[java.util.List[Object]] = new TypeReference {}
 
-    extension (in: Flow[(Seq[(AggregateId, Option[Aggregate])], Seq[Passthrough])])
+    extension (in: Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])])
 
-        /** Transforms outgoing codomain aggregates based on a [[https://jolt-community.github.io/jolt-community Jolt]]
+        /** Transforms outgoing codomain messages based on a [[https://jolt-community.github.io/jolt-community Jolt]]
           * spec.
           */
-        def transformCodomainAggregates(
+        def transformCodomainMessages(
             configOpt: Option[CodomainTransformationConfig],
             parallelism: Parallelism = Parallelism(1)
-        ): Flow[(Seq[(AggregateId, Option[Aggregate])], Seq[Passthrough])] =
+        ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
             val specOpt: Option[Chainr] =
                 configOpt.map: config =>
                     val specInputStream: InputStream =
@@ -38,22 +38,22 @@ object CodomainTransformationStage extends LazyLogging:
                     Chainr.fromSpec(specJsonValue)
 
             in.mapPar(parallelism.toInt): (payloads, passthroughs) =>
-                val payloadsOut: Seq[(AggregateId, Option[Aggregate])] =
-                    payloads.map: (codomainAggregateId, codomainAggregateOpt) =>
+                val payloadsOut: Seq[(MessageId, Option[Message])] =
+                    payloads.map: (codomainMessageId, codomainMessageOpt) =>
                         try
-                            val transformedCodomainAggregateOpt: Option[Aggregate] =
-                                (codomainAggregateOpt, specOpt) match
-                                    case (Some(codomainAggregate), Some(spec)) =>
-                                        Some(AggregateTransformer(codomainAggregate, spec))
+                            val transformedCodomainMessageOpt: Option[Message] =
+                                (codomainMessageOpt, specOpt) match
+                                    case (Some(codomainMessage), Some(spec)) =>
+                                        Some(MessageTransformer(codomainMessage, spec))
                                     case _ =>
-                                        codomainAggregateOpt
-                            (codomainAggregateId, transformedCodomainAggregateOpt)
+                                        codomainMessageOpt
+                            (codomainMessageId, transformedCodomainMessageOpt)
                         catch
                             case NonFatal(ex) =>
                                 logger.error(
-                                    s"Error transforming ($codomainAggregateId, $codomainAggregateOpt): ${ex.stackTraceAsString}"
+                                    s"Error transforming ($codomainMessageId, $codomainMessageOpt): ${ex.stackTraceAsString}"
                                 )
-                                (codomainAggregateId, None)
+                                (codomainMessageId, None)
                 (payloadsOut, passthroughs)
 
 case class CodomainTransformationConfig(specFile: String) derives ConfigReader

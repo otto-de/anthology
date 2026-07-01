@@ -33,26 +33,26 @@ object kafka:
         given topicNameConfigReader: ConfigReader[TopicName] =
             ConfigReader[String].map(nameStr => TopicName(nameStr))
 
-    object AggregateIdSerializer extends Serializer[AggregateId]:
-        private val underlying: Serializer[String] = new StringSerializer
-        override def serialize(topic: String, data: AggregateId): Array[Byte] =
+    object MessageIdSerializer extends Serializer[MessageId]:
+        private val underlying: Serializer[String] = StringSerializer()
+        override def serialize(topic: String, data: MessageId): Array[Byte] =
             underlying.serialize(topic, data.toString)
 
-    object AggregateIdDeserializer extends Deserializer[AggregateId]:
-        private val underlying: Deserializer[String] = new StringDeserializer
-        override def deserialize(topic: String, data: Array[Byte]): AggregateId =
-            AggregateId(underlying.deserialize(topic, data))
+    object MessageIdDeserializer extends Deserializer[MessageId]:
+        private val underlying: Deserializer[String] = StringDeserializer()
+        override def deserialize(topic: String, data: Array[Byte]): MessageId =
+            MessageId(underlying.deserialize(topic, data))
 
-    object AggregateSerializer extends Serializer[Aggregate]:
-        override def serialize(topic: String, data: Aggregate): Array[Byte] =
+    object MessageSerializer extends Serializer[Message]:
+        override def serialize(topic: String, data: Message): Array[Byte] =
             if Objects.isNull(data) then null else mapper.writeValueAsBytes(data.toJson) // scalafix:ok
 
-    object AggregateDeserializer extends Deserializer[Option[Aggregate]]:
-        override def deserialize(topic: String, data: Array[Byte]): Option[Aggregate] =
+    object MessageDeserializer extends Deserializer[Option[Message]]:
+        override def deserialize(topic: String, data: Array[Byte]): Option[Message] =
             if Objects.isNull(data) || data.isEmpty then None
-            else Some(Aggregate(mapper.readTree(data)))
+            else Some(Message(mapper.readTree(data)))
 
-    case class Passthrough(record: ReceivedMessage[AggregateId, Option[Aggregate]], consumerName: ConsumerName)
+    case class Passthrough(record: ReceivedMessage[MessageId, Option[Message]], consumerName: ConsumerName)
     object Passthrough:
         given passthroughComparator: Comparator[Passthrough] =
             new Comparator:
@@ -61,5 +61,5 @@ object kafka:
                     else if x.record.partition != y.record.partition then x.record.partition.compare(y.record.partition)
                     else x.record.offset.compare(y.record.offset)
 
-    type Consumer = ActorRef[KafkaConsumerWrapper[AggregateId, Option[Aggregate]]]
+    type Consumer = ActorRef[KafkaConsumerWrapper[MessageId, Option[Message]]]
     type ConsumerMap = Map[ConsumerName, Consumer]

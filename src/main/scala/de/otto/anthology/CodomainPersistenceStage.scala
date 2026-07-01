@@ -1,8 +1,8 @@
 package de.otto.anthology
 
 import com.typesafe.scalalogging.LazyLogging
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
+import de.otto.anthology.Message
+import de.otto.anthology.MessageId
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -14,29 +14,29 @@ import scala.util.control.NonFatal
 
 object CodomainPersistenceStage extends LazyLogging:
 
-    extension (in: Flow[(Seq[(AggregateId, Option[Aggregate])], Seq[Passthrough])])
+    extension (in: Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])])
 
-        /** Persists outgoing Codomain Aggregates in the [[anthology.statestore.StateStore]]. A missing Aggregate will
-          * be treated as a deletion and removed from StateStore.
+        /** Persists outgoing codomain messages in the [[anthology.statestore.StateStore]]. A missing message will be
+          * treated as a deletion and removed from StateStore.
           */
-        def persistCodomainAggregates(
+        def persistCodomainMessages(
             stateStore: StateStore,
             parallelism: Parallelism = Parallelism(1)
-        ): Flow[(Seq[(AggregateId, Option[Aggregate])], Seq[Passthrough])] =
+        ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
             in.map: (payloads, passthroughs) =>
-                val payloadsOut = payloads.mapPar(parallelism.toInt): aggId2agg =>
+                val payloadsOut = payloads.mapPar(parallelism.toInt): msgId2msg =>
                     try
-                        val aggregateKey: String = s"${StateStoreSection.COD}/${aggId2agg._1}"
-                        aggId2agg._2 match
-                            case Some(aggregate) =>
-                                stateStore.putJson(aggregateKey, aggregate.toJson)
+                        val messageKey: String = s"${StateStoreSection.COD}/${msgId2msg._1}"
+                        msgId2msg._2 match
+                            case Some(message) =>
+                                stateStore.putJson(messageKey, message.toJson)
                             case None =>
-                                stateStore.delete(aggregateKey)
-                        aggId2agg
+                                stateStore.delete(messageKey)
+                        msgId2msg
                     catch
                         case NonFatal(ex) =>
                             logger.error(
-                                s"Error persisting codomain aggregate (${aggId2agg._1}, ${aggId2agg._2}): ${ex.stackTraceAsString}"
+                                s"Error persisting codomain message (${msgId2msg._1}, ${msgId2msg._2}): ${ex.stackTraceAsString}"
                             )
-                            (aggId2agg._1, None)
+                            (msgId2msg._1, None)
                 (payloadsOut, passthroughs)

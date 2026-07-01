@@ -2,13 +2,13 @@ package de.otto.anthology.transformation
 
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.typesafe.scalalogging.LazyLogging
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateName
-import de.otto.anthology.DomainName
+import de.otto.anthology.ChannelName
 import de.otto.anthology.JsonSupport
+import de.otto.anthology.Message
+import de.otto.anthology.MessageFormatName
 import de.otto.anthology.Parallelism
-import de.otto.anthology.QualifiedAggregateId
-import de.otto.anthology.config.DomainConfigs
+import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import io.joltcommunity.jolt.Chainr
@@ -24,27 +24,27 @@ object DomainTransformationStage extends LazyLogging:
 
     private val specTypeRef: TypeReference[java.util.List[Object]] = new TypeReference {}
 
-    extension (in: Flow[(Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough)])
+    extension (in: Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)])
 
-        /** Transforms incoming domain aggregate ids based on a regex pattern, configured per domain. See
-          * [[anthology.transformation.AggregateIdTransformer]] for details.
+        /** Transforms incoming domain message ids based on a regex pattern, configured per channel. See
+          * [[anthology.transformation.MessageIdTransformer]] for details.
           */
-        def transformDomainAggregateIds(
-            configs: DomainConfigs
-        ): Flow[(Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough)] =
+        def transformDomainMessageIds(
+            configs: ChannelConfigs
+        ): Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
             in.map:
                 case (None, pass) =>
                     (None, pass)
-                case (Some(qaid, domainAggregateOpt), pass) =>
+                case (Some(qmid, domainMessageOpt), pass) =>
                     try
-                        val configOpt = configs.aggregateByQualifiedAggregateId(qaid).idTransformation
-                        val transformedDomainAggregateId =
+                        val configOpt = configs.messageFormatByQualifiedMessageId(qmid).idTransformation
+                        val transformedDomainMessageId =
                             configOpt match
                                 case Some(config) =>
-                                    AggregateIdTransformer(qaid.id, config.pattern)
+                                    MessageIdTransformer(qmid.id, config.pattern)
                                 case None =>
-                                    qaid.id
-                        (Some(qaid.copy(id = transformedDomainAggregateId), domainAggregateOpt), pass)
+                                    qmid.id
+                        (Some(qmid.copy(id = transformedDomainMessageId), domainMessageOpt), pass)
                     catch
                         case NonFatal(ex) =>
                             logger.error(
@@ -52,41 +52,41 @@ object DomainTransformationStage extends LazyLogging:
                             )
                             (None, pass)
 
-        /** Transforms incoming domain aggregates based on a [[https://jolt-community.github.io/jolt-community Jolt]]
-          * spec, configured per domain.
+        /** Transforms incoming domain messages based on a [[https://jolt-community.github.io/jolt-community Jolt]]
+          * spec, configured per channel.
           */
-        def transformDomainAggregates(
-            configs: DomainConfigs,
+        def transformDomainMessages(
+            configs: ChannelConfigs,
             parallelism: Parallelism = Parallelism(1)
-        ): Flow[(Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough)] =
-            val specs: Map[(DomainName, AggregateName), Chainr] =
-                configs.aggregatesByName.flatMap: (domName2aggName, aggConfig) =>
-                    aggConfig.transformation.map: tc =>
+        ): Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
+            val specs: Map[(ChannelName, MessageFormatName), Chainr] =
+                configs.messageFormatsByName.flatMap: (chanName2msgName, msgConfig) =>
+                    msgConfig.transformation.map: tc =>
                         val specInputStream: InputStream =
                             if tc.specFile.startsWith("/") then new FileInputStream(tc.specFile)
                             else classOf[DomainTransformationStage.type].getResourceAsStream("/" + tc.specFile)
                         val specJsonValue: java.util.List[Object] =
                             JsonSupport.mapper.readValue(specInputStream, specTypeRef)
                         val chain = Chainr.fromSpec(specJsonValue)
-                        (domName2aggName, chain)
+                        (chanName2msgName, chain)
 
             in.mapPar(parallelism.toInt):
                 case (None, pass) =>
                     (None, pass)
-                case (Some(qaid, domainAggregateOpt), pass) =>
-                    domainAggregateOpt match
-                        case Some(domainAggregate) =>
-                            val specOpt = specs.get((qaid.domainName, qaid.aggregateName))
-                            val transformedDomainAggregate =
+                case (Some(qmid, domainMessageOpt), pass) =>
+                    domainMessageOpt match
+                        case Some(domainMessage) =>
+                            val specOpt = specs.get((qmid.channelName, qmid.messageName))
+                            val transformedDomainMessage =
                                 specOpt match
                                     case Some(spec) =>
-                                        AggregateTransformer(domainAggregate, spec)
+                                        MessageTransformer(domainMessage, spec)
                                     case None =>
-                                        domainAggregate
-                            (Some(qaid, Some(transformedDomainAggregate)), pass)
+                                        domainMessage
+                            (Some(qmid, Some(transformedDomainMessage)), pass)
                         case None =>
-                            (Some(qaid, domainAggregateOpt), pass)
+                            (Some(qmid, domainMessageOpt), pass)
 
-case class DomainAggregateIdTransformationConfig(pattern: Regex) derives ConfigReader
+case class DomainMessageIdTransformationConfig(pattern: Regex) derives ConfigReader
 
-case class DomainAggregateTransformationConfig(specFile: String) derives ConfigReader
+case class DomainMessageTransformationConfig(specFile: String) derives ConfigReader

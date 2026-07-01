@@ -2,11 +2,11 @@ package de.otto.anthology
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.TextNode
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
-import de.otto.anthology.DomainPersistenceStage.persistDomainAggregates
+import de.otto.anthology.DomainPersistenceStage.persistDomainMessages
 import de.otto.anthology.JsonSupport.mapper
-import de.otto.anthology.QualifiedAggregateId
+import de.otto.anthology.Message
+import de.otto.anthology.MessageId
+import de.otto.anthology.QualifiedMessageId
 import de.otto.anthology.TestData.*
 import de.otto.anthology.TestUtils.*
 import de.otto.anthology.statestore.StateStoreSection
@@ -22,12 +22,12 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
         // given
         val stateStore = InMemoryStateStore()
 
-        val categoryId = AggregateId("327")
-        val authorId = AggregateId("f3d2b210-7391-40c1-92bd-370caddd59b6")
+        val categoryId = MessageId("327")
+        val authorId = MessageId("f3d2b210-7391-40c1-92bd-370caddd59b6")
 
-        val bookId = AggregateId("f998258d-5081-4b20-b41d-865134b80eb2")
+        val bookId = MessageId("f998258d-5081-4b20-b41d-865134b80eb2")
         val book =
-            Aggregate(mapper.readTree(s"""
+            Message(mapper.readTree(s"""
                 {   
                     "id": "$bookId",
                     "categoryId": "$categoryId",
@@ -41,14 +41,18 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
 
         // when
         val src = Flow.fromValues(
-            (Some(QualifiedAggregateId(mediaDomain, bookAggregate, bookId), Some(book)), pass)
+            (Some(QualifiedMessageId(mediaChannel, bookMessageFormat, bookId), Some(book)), pass)
         )
-        val out = src.persistDomainAggregates(stateStore).runToList()
+        val out = src.persistDomainMessages(stateStore).runToList()
 
         // then
-        assert(stateStore.getJson(s"${StateStoreSection.DOM}/$mediaDomain/$bookAggregate/$bookId") == Some(book.toJson))
+        assert(
+            stateStore.getJson(s"${StateStoreSection.DOM}/$mediaChannel/$bookMessageFormat/$bookId") == Some(
+                book.toJson
+            )
+        )
         assert(out.size == 1)
-        assert(out(0)._1 == Some(QualifiedAggregateId(mediaDomain, bookAggregate, bookId)))
+        assert(out(0)._1 == Some(QualifiedMessageId(mediaChannel, bookMessageFormat, bookId)))
         assert(out(0)._2 == pass)
 
     it should "persist multiple incoming Domain Aggregates" in:
@@ -56,10 +60,10 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
         // given
         val stateStore = InMemoryStateStore()
 
-        val categoryId = AggregateId("327")
-        val categoryQaid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryId)
+        val categoryId = MessageId("327")
+        val categoryQaid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryId)
         val category =
-            Aggregate(mapper.readTree(s"""
+            Message(mapper.readTree(s"""
                 {   
                     "id": "$categoryId",
                     "name": "Fantasy"
@@ -67,10 +71,10 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
             """))
         val categoryPass = mockedKafkaRecord(categoryId.toString, category.toJson)
 
-        val authorId = AggregateId("f3d2b210-7391-40c1-92bd-370caddd59b6")
-        val authorQaid = QualifiedAggregateId(authorsDomain, authorAggregate, authorId)
+        val authorId = MessageId("f3d2b210-7391-40c1-92bd-370caddd59b6")
+        val authorQaid = QualifiedMessageId(authorsChannel, authorMessageFormat, authorId)
         val author =
-            Aggregate(mapper.readTree(s"""
+            Message(mapper.readTree(s"""
                 {   
                     "id": "$authorId",
                     "name": "J. R. R. Tolkien",
@@ -79,10 +83,10 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
             """))
         val authorPass = mockedKafkaRecord(authorId.toString, author.toJson)
 
-        val bookId1 = AggregateId("f998258d-5081-4b20-b41d-865134b80eb2")
-        val bookQaid1 = QualifiedAggregateId(mediaDomain, bookAggregate, bookId1)
+        val bookId1 = MessageId("f998258d-5081-4b20-b41d-865134b80eb2")
+        val bookQaid1 = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId1)
         val book1 =
-            Aggregate(mapper.readTree(s"""
+            Message(mapper.readTree(s"""
                 {   
                     "id": "$bookId1",
                     "categoryId": "$categoryId",
@@ -94,10 +98,10 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
             """))
         val bookPass1 = mockedKafkaRecord(bookId1.toString, book1.toJson)
 
-        val bookId2 = AggregateId("31a94690-f53d-421f-8428-a14a06a8081b")
-        val bookQaid2 = QualifiedAggregateId(mediaDomain, bookAggregate, bookId2)
+        val bookId2 = MessageId("31a94690-f53d-421f-8428-a14a06a8081b")
+        val bookQaid2 = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId2)
         val book2 =
-            Aggregate(mapper.readTree(s"""
+            Message(mapper.readTree(s"""
                 {   
                     "id": "$bookId2",
                     "categoryId": "$categoryId",
@@ -109,10 +113,10 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
             """))
         val bookPass2 = mockedKafkaRecord(bookId2.toString, book2.toJson)
 
-        val bookId3 = AggregateId("8103cf50-e5fd-45b3-9df8-f2554ef011ad")
-        val bookQaid3 = QualifiedAggregateId(mediaDomain, bookAggregate, bookId3)
+        val bookId3 = MessageId("8103cf50-e5fd-45b3-9df8-f2554ef011ad")
+        val bookQaid3 = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId3)
         val book3 =
-            Aggregate(mapper.readTree(s"""
+            Message(mapper.readTree(s"""
                 {   
                     "id": "$bookId3",
                     "categoryId": "$categoryId",
@@ -132,7 +136,7 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
             (Some(bookQaid2, Some(book2)), bookPass2),
             (Some(bookQaid3, Some(book3)), bookPass3)
         )
-        val out = src.persistDomainAggregates(stateStore).runToList()
+        val out = src.persistDomainMessages(stateStore).runToList()
 
         // then
         assert(stateStore.getJson(s"${StateStoreSection.DOM}/$categoryQaid") == Some(category.toJson))
@@ -157,13 +161,13 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
         // given
         val stateStore = InMemoryStateStore()
 
-        val categoryId = AggregateId("327")
-        val authorId = AggregateId("f3d2b210-7391-40c1-92bd-370caddd59b6")
+        val categoryId = MessageId("327")
+        val authorId = MessageId("f3d2b210-7391-40c1-92bd-370caddd59b6")
 
-        val bookId = AggregateId("f998258d-5081-4b20-b41d-865134b80eb2")
-        val bookQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookId)
+        val bookId = MessageId("f998258d-5081-4b20-b41d-865134b80eb2")
+        val bookQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId)
         val book =
-            Aggregate(mapper.readTree(s"""
+            Message(mapper.readTree(s"""
                 {   
                     "id": "$bookId",
                     "categoryId": "$categoryId",
@@ -179,7 +183,7 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
         val src = Flow.fromValues(
             (Some(bookQaid, Some(book)), pass)
         )
-        src.persistDomainAggregates(stateStore).runDrain()
+        src.persistDomainMessages(stateStore).runDrain()
 
         // then (1)
         assert(stateStore.getJson(s"${StateStoreSection.DOM}/$bookQaid") == Some(book.toJson))
@@ -188,7 +192,7 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
         val src2 = Flow.fromValues(
             (Some(bookQaid, None), pass)
         )
-        val out = src2.persistDomainAggregates(stateStore).runToList()
+        val out = src2.persistDomainMessages(stateStore).runToList()
 
         // then (2)
         assert(stateStore.getJson(s"${StateStoreSection.DOM}/$bookQaid") == None)
@@ -199,13 +203,13 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
         // given
         val stateStore = InMemoryStateStore()
 
-        val categoryId = AggregateId("327")
-        val authorId = AggregateId("f3d2b210-7391-40c1-92bd-370caddd59b6")
+        val categoryId = MessageId("327")
+        val authorId = MessageId("f3d2b210-7391-40c1-92bd-370caddd59b6")
 
-        val bookId = AggregateId("f998258d-5081-4b20-b41d-865134b80eb2")
-        val bookQaid = QualifiedAggregateId(mediaDomain, bookAggregate, bookId)
+        val bookId = MessageId("f998258d-5081-4b20-b41d-865134b80eb2")
+        val bookQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId)
         val book =
-            Aggregate(mapper.readTree(s"""
+            Message(mapper.readTree(s"""
                 {   
                     "id": "$bookId",
                     "categoryId": "$categoryId",
@@ -221,7 +225,7 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
         val src = Flow.fromValues(
             (Some(bookQaid, Some(book)), pass)
         )
-        src.persistDomainAggregates(stateStore).runDrain()
+        src.persistDomainMessages(stateStore).runDrain()
 
         // then (1)
         assert(stateStore.getJson(s"${StateStoreSection.DOM}/$bookQaid") == Some(book.toJson))
@@ -230,7 +234,7 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
         val src2 = Flow.fromValues(
             (None, pass)
         )
-        val out = src2.persistDomainAggregates(stateStore).runToList()
+        val out = src2.persistDomainMessages(stateStore).runToList()
 
         // then (2)
         assert(stateStore.getJson(s"${StateStoreSection.DOM}/$bookQaid") == Some(book.toJson))
@@ -241,14 +245,14 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
         // given
         val stateStore = InMemoryStateStore()
 
-        val categoryInvalidId1 = AggregateId("327/999")
-        val categoryQaidInvalid1 = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryInvalidId1)
+        val categoryInvalidId1 = MessageId("327/999")
+        val categoryQaidInvalid1 = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryInvalidId1)
         val passInvalid1 = mockedKafkaRecord(categoryInvalidId1.toString, TextNode("foobar"))
-        val categoryValidId = AggregateId("327.999")
-        val categoryQaidValid = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryValidId)
+        val categoryValidId = MessageId("327.999")
+        val categoryQaidValid = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryValidId)
         val passValid = mockedKafkaRecord(categoryValidId.toString, TextNode("foobar"))
-        val categoryInvalidId2 = AggregateId("327;999")
-        val categoryQaidInvalid2 = QualifiedAggregateId(categoriesDomain, categoryAggregate, categoryInvalidId2)
+        val categoryInvalidId2 = MessageId("327;999")
+        val categoryQaidInvalid2 = QualifiedMessageId(categoriesChannel, categoryMessageFormat, categoryInvalidId2)
         val passInvalid2 = mockedKafkaRecord(categoryInvalidId2.toString, TextNode("foobar"))
 
         // when
@@ -257,7 +261,7 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
             (Some(categoryQaidValid, None), passValid),
             (Some(categoryQaidInvalid2, None), passInvalid2)
         )
-        val out = src.persistDomainAggregates(stateStore).runToList()
+        val out = src.persistDomainMessages(stateStore).runToList()
 
         // then
         assert(out.size == 3)

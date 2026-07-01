@@ -1,6 +1,6 @@
 package de.otto.anthology.headerpropagation
 
-import de.otto.anthology.AggregateId
+import de.otto.anthology.MessageId
 import de.otto.anthology.TestUtils.mockedEmptyKafkaRecord
 import de.otto.anthology.headerpropagation.GenerateConstant
 import de.otto.anthology.headerpropagation.GenerateTimestamp
@@ -22,7 +22,7 @@ import scala.util.matching.Regex
 class HeaderPropagationStageTest extends AnyFlatSpec, Matchers, Diagrams:
     "HeaderPropagationStage" should "generate headers" in:
         // given
-        val aggIdX = AggregateId("abc-def-123")
+        val aggIdX = MessageId("abc-def-123")
         val aggX = None
         val passX = mockedEmptyKafkaRecord("abc-def-123")
         val configs =

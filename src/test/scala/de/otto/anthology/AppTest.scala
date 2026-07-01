@@ -36,14 +36,14 @@ class AppTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, BeforeAndA
         val tempDir: Path = Paths.get(System.getProperty("java.io.tmpdir"))
         val configDir: Path = Paths.get(URLDecoder.decode(getClass.getResource("/e2e").getFile, StandardCharsets.UTF_8))
 
-        val credentials = """{"test-cluster":{}}"""
+        val additionalProps = """{"test-cluster":{}}"""
 
         val cliArgs =
             Vector(
                 "--anthology-config-file",
                 s"$configDir/application-minimal.yaml",
-                "--anthology-credentials",
-                credentials,
+                "--anthology-additional-kafka-properties",
+                additionalProps,
                 "--anthology-state-store-path",
                 s"$tempDir/anthology-data/${UUID.randomUUID}"
             )
@@ -91,7 +91,7 @@ class AppTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, BeforeAndA
             val book = TestData.setupBookEasy.toJson
             book
                 .asInstanceOf[ObjectNode]
-                .set(s"${TestData.authorsDomain}/${TestData.authorAggregate}", authors)
+                .set(s"${TestData.authorsChannel}/${TestData.authorMessageFormat}", authors)
             book.toString()
         }
 

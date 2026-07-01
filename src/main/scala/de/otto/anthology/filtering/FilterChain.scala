@@ -5,22 +5,22 @@ import com.jayway.jsonpath.Configuration
 import com.jayway.jsonpath.JsonPath
 import com.jayway.jsonpath.Option as JsonPathOption
 import com.jayway.jsonpath.spi.json.JacksonJsonNodeJsonProvider
-import de.otto.anthology.Aggregate
+import de.otto.anthology.Message
 
 case class FilterChain(paths: Seq[JsonPath]):
-    def apply(aggregateOpt: Option[Aggregate]): Option[Aggregate] =
-        paths.foldLeft(aggregateOpt)(applyFilter)
+    def apply(messageOpt: Option[Message]): Option[Message] =
+        paths.foldLeft(messageOpt)(applyFilter)
 
-    private def applyFilter(aggregateOpt: Option[Aggregate], filter: JsonPath): Option[Aggregate] =
-        aggregateOpt match
-            case Some(aggregate) =>
+    private def applyFilter(messageOpt: Option[Message], filter: JsonPath): Option[Message] =
+        messageOpt match
+            case Some(message) =>
                 val filterResults: ArrayNode =
-                    FilterChain.context.parse(aggregate.toJson).read[ArrayNode](filter)
+                    FilterChain.context.parse(message.toJson).read[ArrayNode](filter)
                 if filterResults.isEmpty then None
-                else if filterResults.size == 1 then Some(Aggregate(filterResults.get(0)))
+                else if filterResults.size == 1 then Some(Message(filterResults.get(0)))
                 else
                     throw new IllegalArgumentException(
-                        s"Possible misconfiguration: Multiple filter results when applying $filter on $aggregate"
+                        s"Possible misconfiguration: Multiple filter results when applying $filter on $message"
                     )
             case None =>
                 None

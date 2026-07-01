@@ -3,10 +3,10 @@ package de.otto.anthology
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.BroadcastStage.broadcast
 import de.otto.anthology.config.KafkaClusterSettings
-import de.otto.anthology.kafka.AggregateIdSerializer
-import de.otto.anthology.kafka.AggregateSerializer
 import de.otto.anthology.kafka.ClusterName
 import de.otto.anthology.kafka.ConsumerMap
+import de.otto.anthology.kafka.MessageIdSerializer
+import de.otto.anthology.kafka.MessageSerializer
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.kafka.TopicName
 import org.apache.kafka.clients.producer.ProducerRecord
@@ -24,20 +24,20 @@ import java.util.Collections
 
 object KafkaSink extends LazyLogging:
 
-    extension (in: Flow[(Seq[(AggregateId, Option[Aggregate], Option[Headers])], Seq[Passthrough])])
-        def emit(settings: KafkaSinkSettings): Unit =
-            val credentials = settings.clusterSettings.credentials
-            val baseSettings: ProducerSettings[AggregateId, Aggregate] =
+    extension (in: Flow[(Seq[(MessageId, Option[Message], Option[Headers])], Seq[Passthrough])])
+        def emitCodomainMessages(settings: KafkaSinkSettings): Unit =
+            val additionalProps = settings.clusterSettings.additionalProperties
+            val baseSettings: ProducerSettings[MessageId, Message] =
                 ProducerSettings.default
                     .bootstrapServers(settings.clusterSettings.config.bootstrapServers.split(",").map(_.trim)*)
-                    .keySerializer(AggregateIdSerializer)
-                    .valueSerializer(AggregateSerializer)
-            val producerSettings: ProducerSettings[AggregateId, Aggregate] =
-                credentials.foldLeft(baseSettings)((s, k2v) => s.property(k2v._1, k2v._2))
+                    .keySerializer(MessageIdSerializer)
+                    .valueSerializer(MessageSerializer)
+            val producerSettings: ProducerSettings[MessageId, Message] =
+                additionalProps.foldLeft(baseSettings)((s, k2v) => s.property(k2v._1, k2v._2))
 
             supervised:
                 // setup channel for publishing
-                val publishChannel = Channel.rendezvous[ProducerRecord[AggregateId, Aggregate]]
+                val publishChannel = Channel.rendezvous[ProducerRecord[MessageId, Message]]
                 val publishFork =
                     fork:
                         Flow.fromSource(publishChannel)
@@ -73,7 +73,7 @@ object KafkaSink extends LazyLogging:
                         val producerRecords =
                             payload.map: p =>
                                 val recKey = p._1
-                                val recValue = p._2.getOrElse(null.asInstanceOf[Aggregate])
+                                val recValue = p._2.getOrElse(null.asInstanceOf[Message])
                                 val recHeaders = p._3.getOrElse(Collections.emptyList[Header]())
                                 ProducerRecord(
                                     settings.config.topic.toString,
@@ -84,7 +84,7 @@ object KafkaSink extends LazyLogging:
                                 ) // scalafix:ok
                         (producerRecords, offsets)
                     .map: (producerRecords, offsets) =>
-                        if logCnt % 100 == 0 then logger.info("publishing and committing batch...")
+                        if logCnt % 100 == 0 then logger.info("Published and committed 100 batches...")
                         logCnt += 1
                         producerRecords.foreach(publishChannel.send)
                         offsets.foreach(committerChannel.send)

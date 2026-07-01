@@ -1,65 +1,65 @@
 package de.otto.anthology
 
 import com.jayway.jsonpath.JsonPath
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
 import de.otto.anthology.JsonSupport.mapper
-import de.otto.anthology.config.DomainRelationConfigs
+import de.otto.anthology.Message
+import de.otto.anthology.MessageId
 import de.otto.anthology.config.ManyToOne
 import de.otto.anthology.config.OneToMany
+import de.otto.anthology.config.RelationConfigs
 
 object TestData:
 
-    val mediaDomain = DomainName("Media")
-    val authorsDomain = DomainName("Authors")
-    val storageDomain = DomainName("Storage")
-    val categoriesDomain = DomainName("Categories")
+    val mediaChannel = ChannelName("Media")
+    val authorsChannel = ChannelName("Authors")
+    val storageChannel = ChannelName("Storage")
+    val categoriesChannel = ChannelName("Categories")
 
-    val bookAggregate = AggregateName("Book")
-    val authorAggregate = AggregateName("Author")
-    val receiptAggregate = AggregateName("Receipt")
-    val shelfAggregate = AggregateName("Shelf")
-    val categoryAggregate = AggregateName("Category")
+    val bookMessageFormat = MessageFormatName("Book")
+    val authorMessageFormat = MessageFormatName("Author")
+    val receiptMessageFormat = MessageFormatName("Receipt")
+    val shelfMessageFormat = MessageFormatName("Shelf")
+    val categoryMessageFormat = MessageFormatName("Category")
 
-    def setupRelationsConfig(): DomainRelationConfigs =
+    def setupRelationsConfig(): RelationConfigs =
         val books2authors = ManyToOne(
-            relFrom = mediaDomain -> bookAggregate,
-            relTo = authorsDomain -> authorAggregate,
+            relFrom = mediaChannel -> bookMessageFormat,
+            relTo = authorsChannel -> authorMessageFormat,
             refFromManyToOnePath = JsonPath.compile("$.authorId")
         )
 
         val books2receipts = OneToMany(
-            relFrom = mediaDomain -> bookAggregate,
-            relTo = storageDomain -> receiptAggregate,
+            relFrom = mediaChannel -> bookMessageFormat,
+            relTo = storageChannel -> receiptMessageFormat,
             refFromManyToOnePath = JsonPath.compile("$.bookId")
         )
 
         val receipts2shelves = ManyToOne(
-            relFrom = storageDomain -> receiptAggregate,
-            relTo = storageDomain -> shelfAggregate,
+            relFrom = storageChannel -> receiptMessageFormat,
+            relTo = storageChannel -> shelfMessageFormat,
             refFromManyToOnePath = JsonPath.compile("$.shelfId")
         )
 
         val books2categories = ManyToOne(
-            relFrom = mediaDomain -> bookAggregate,
-            relTo = categoriesDomain -> categoryAggregate,
+            relFrom = mediaChannel -> bookMessageFormat,
+            relTo = categoriesChannel -> categoryMessageFormat,
             refFromManyToOnePath = JsonPath.compile("$.categoryId")
         )
 
         val categories2shelves = ManyToOne(
-            relFrom = categoriesDomain -> categoryAggregate,
-            relTo = storageDomain -> shelfAggregate,
+            relFrom = categoriesChannel -> categoryMessageFormat,
+            relTo = storageChannel -> shelfMessageFormat,
             refFromManyToOnePath = JsonPath.compile("$.shelfId")
         )
 
-        DomainRelationConfigs(
+        RelationConfigs(
             Seq(books2authors, books2receipts, receipts2shelves, books2categories, categories2shelves)
         )
 
-    def setupCategoryIdFantasy: AggregateId = AggregateId("327")
+    def setupCategoryIdFantasy: MessageId = MessageId("327")
 
-    def setupCategoryFantasy: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupCategoryFantasy: Message =
+        Message(mapper.readTree(s"""
             {   
                 "id": "$setupCategoryIdFantasy",
                 "name": "Fantasy",
@@ -67,10 +67,10 @@ object TestData:
             }
         """))
 
-    def setupCategoryIdMystery: AggregateId = AggregateId("425")
+    def setupCategoryIdMystery: MessageId = MessageId("425")
 
-    def setupCategoryMystery: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupCategoryMystery: Message =
+        Message(mapper.readTree(s"""
             {   
                 "id": "$setupCategoryIdMystery",
                 "name": "Mystery", 
@@ -78,10 +78,10 @@ object TestData:
             }
         """))
 
-    def setupCategoryIdScientific: AggregateId = AggregateId("100")
+    def setupCategoryIdScientific: MessageId = MessageId("100")
 
-    def setupCategoryScientific: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupCategoryScientific: Message =
+        Message(mapper.readTree(s"""
             {   
                 "id": "$setupCategoryIdScientific",
                 "name": "Scientific",
@@ -89,10 +89,10 @@ object TestData:
             }
         """))
 
-    def setupAuthorIdTolkien: AggregateId = AggregateId("f3d2b210-7391-40c1-92bd-370caddd59b6")
+    def setupAuthorIdTolkien: MessageId = MessageId("f3d2b210-7391-40c1-92bd-370caddd59b6")
 
-    def setupAuthorTolkien: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupAuthorTolkien: Message =
+        Message(mapper.readTree(s"""
             {   
                 "id": "$setupAuthorIdTolkien",
                 "name": "J. R. R. Tolkien",
@@ -100,10 +100,10 @@ object TestData:
             }
         """))
 
-    def setupAuthorIdChristie: AggregateId = AggregateId("5d67fcb5-aab0-4e11-81a1-69c341d63ace")
+    def setupAuthorIdChristie: MessageId = MessageId("5d67fcb5-aab0-4e11-81a1-69c341d63ace")
 
-    def setupAuthorCristie: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupAuthorCristie: Message =
+        Message(mapper.readTree(s"""
             {   
                 "id": "$setupAuthorIdChristie",
                 "name": "Agatha Christie",
@@ -111,10 +111,10 @@ object TestData:
             }
         """))
 
-    def setupAuthorIdKnuth: AggregateId = AggregateId("dc20395a-dca9-407b-8478-70287c51253b")
+    def setupAuthorIdKnuth: MessageId = MessageId("dc20395a-dca9-407b-8478-70287c51253b")
 
-    def setupAuthorKnuth: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupAuthorKnuth: Message =
+        Message(mapper.readTree(s"""
             {   
                 "id": "$setupAuthorIdKnuth",
                 "name": "Donald E. Knuth",
@@ -122,10 +122,10 @@ object TestData:
             }
         """))
 
-    def setupAuthorIdFeynman: AggregateId = AggregateId("ded8fb5c-d5cb-423f-861d-c7cf20d1fef6")
+    def setupAuthorIdFeynman: MessageId = MessageId("ded8fb5c-d5cb-423f-861d-c7cf20d1fef6")
 
-    def setupAuthorFeynman: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupAuthorFeynman: Message =
+        Message(mapper.readTree(s"""
             {   
                 "id": "$setupAuthorIdKnuth",
                 "name": "Richard P. Feynman",
@@ -133,30 +133,30 @@ object TestData:
             }
         """))
 
-    def setupShelfIdNonFiction: AggregateId = AggregateId("NF")
+    def setupShelfIdNonFiction: MessageId = MessageId("NF")
 
-    def setupShelfNonFiction: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupShelfNonFiction: Message =
+        Message(mapper.readTree(s"""
         {   
             "id": "$setupShelfIdNonFiction",
             "name": "Nonfictional Literature"
         }
         """))
 
-    def setupShelfIdFiction: AggregateId = AggregateId("FI")
+    def setupShelfIdFiction: MessageId = MessageId("FI")
 
-    def setupShelfFiction: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupShelfFiction: Message =
+        Message(mapper.readTree(s"""
         {   
             "id": "$setupShelfIdFiction",
             "name": "Fictional Literature"
         }
         """))
 
-    def setupBookIdSilmarillion: AggregateId = AggregateId("f998258d-5081-4b20-b41d-865134b80eb2")
+    def setupBookIdSilmarillion: MessageId = MessageId("f998258d-5081-4b20-b41d-865134b80eb2")
 
-    def setupBookSilmarillion: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupBookSilmarillion: Message =
+        Message(mapper.readTree(s"""
             {   
                 "id": "$setupBookIdSilmarillion",
                 "categoryId": "$setupCategoryIdFantasy",
@@ -167,10 +167,10 @@ object TestData:
             }
         """))
 
-    def setupBookIdHobbit: AggregateId = AggregateId("31a94690-f53d-421f-8428-a14a06a8081b")
+    def setupBookIdHobbit: MessageId = MessageId("31a94690-f53d-421f-8428-a14a06a8081b")
 
-    def setupBookHobbit: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupBookHobbit: Message =
+        Message(mapper.readTree(s"""
             {   
                 "id": "$setupBookIdHobbit",
                 "categoryId": "$setupCategoryIdFantasy",
@@ -181,10 +181,10 @@ object TestData:
             }
         """))
 
-    def setupBookIdRings: AggregateId = AggregateId("610e3d5d-d41c-48b9-8f67-96ad3e383519")
+    def setupBookIdRings: MessageId = MessageId("610e3d5d-d41c-48b9-8f67-96ad3e383519")
 
-    def setupBookRings(categoryId: AggregateId = setupCategoryIdFantasy): Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupBookRings(categoryId: MessageId = setupCategoryIdFantasy): Message =
+        Message(mapper.readTree(s"""
         {   
             "id": "$setupBookIdRings",
             "categoryId": "$categoryId",
@@ -195,10 +195,10 @@ object TestData:
         }
         """))
 
-    def setupBookIdOrientExpress: AggregateId = AggregateId("9bd60be7-8dbe-4d56-8fb1-55ff49548b0f")
+    def setupBookIdOrientExpress: MessageId = MessageId("9bd60be7-8dbe-4d56-8fb1-55ff49548b0f")
 
-    def setupBookOrientExpress: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupBookOrientExpress: Message =
+        Message(mapper.readTree(s"""
         {   
             "id": "$setupBookIdOrientExpress",
             "categoryId": "$setupCategoryIdMystery",
@@ -209,10 +209,10 @@ object TestData:
         }
         """))
 
-    def setupBookIdNile: AggregateId = AggregateId("c33f2c1b-d604-4f6f-8fe0-6d827acc28d2")
+    def setupBookIdNile: MessageId = MessageId("c33f2c1b-d604-4f6f-8fe0-6d827acc28d2")
 
-    def setupBookNile: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupBookNile: Message =
+        Message(mapper.readTree(s"""
         {   
             "id": "$setupBookIdNile",
             "categoryId": "$setupCategoryIdMystery",
@@ -223,10 +223,10 @@ object TestData:
         }
         """))
 
-    def setupBookIdComputer: AggregateId = AggregateId("e92c5192-9093-43de-b92f-d68725b0eb9d")
+    def setupBookIdComputer: MessageId = MessageId("e92c5192-9093-43de-b92f-d68725b0eb9d")
 
-    def setupBookComputer: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupBookComputer: Message =
+        Message(mapper.readTree(s"""
         {   
             "id": "$setupBookIdComputer",
             "categoryId": "$setupCategoryIdScientific",
@@ -237,10 +237,10 @@ object TestData:
         }
         """))
 
-    def setupBookIdEasy: AggregateId = AggregateId("31cb1ec2-34d5-4cda-9866-11f8f3921b67")
+    def setupBookIdEasy: MessageId = MessageId("31cb1ec2-34d5-4cda-9866-11f8f3921b67")
 
-    def setupBookEasy: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupBookEasy: Message =
+        Message(mapper.readTree(s"""
         {   
             "id": "$setupBookIdEasy",
             "categoryId": "$setupCategoryIdScientific",
@@ -251,10 +251,10 @@ object TestData:
         }
         """))
 
-    def setupReceiptIdSilmarillion1: AggregateId = AggregateId("cdc22a3c-2e16-4751-8c21-2534119cd692")
+    def setupReceiptIdSilmarillion1: MessageId = MessageId("cdc22a3c-2e16-4751-8c21-2534119cd692")
 
-    def setupReceiptSilmarillion1: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupReceiptSilmarillion1: Message =
+        Message(mapper.readTree(s"""
         {   
             "id": "$setupReceiptIdSilmarillion1",
             "bookId": "$setupBookIdSilmarillion",
@@ -263,10 +263,10 @@ object TestData:
         }
         """))
 
-    def setupReceiptIdSilmarillion2: AggregateId = AggregateId("25a0198e-9d0b-4139-8283-6b01490843b4")
+    def setupReceiptIdSilmarillion2: MessageId = MessageId("25a0198e-9d0b-4139-8283-6b01490843b4")
 
-    def setupReceiptSilmarillion2: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupReceiptSilmarillion2: Message =
+        Message(mapper.readTree(s"""
         {   
             "id": "$setupReceiptIdSilmarillion2",
             "bookId": "$setupBookIdSilmarillion",
@@ -275,10 +275,10 @@ object TestData:
         }
         """))
 
-    def setupReceiptIdEasy: AggregateId = AggregateId("6501d9f4-12a9-40da-89a2-a75da44b275c")
+    def setupReceiptIdEasy: MessageId = MessageId("6501d9f4-12a9-40da-89a2-a75da44b275c")
 
-    def setupReceiptEasy: Aggregate =
-        Aggregate(mapper.readTree(s"""
+    def setupReceiptEasy: Message =
+        Message(mapper.readTree(s"""
         {   
             "id": "$setupReceiptIdEasy",
             "bookId": "$setupBookIdEasy",

@@ -2,12 +2,12 @@ package de.otto.anthology.filtering
 
 import com.jayway.jsonpath.JsonPath
 import com.typesafe.scalalogging.LazyLogging
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateName
-import de.otto.anthology.DomainName
+import de.otto.anthology.ChannelName
+import de.otto.anthology.Message
+import de.otto.anthology.MessageFormatName
 import de.otto.anthology.Parallelism
-import de.otto.anthology.QualifiedAggregateId
-import de.otto.anthology.config.DomainConfigs
+import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.config.jsonPathConfigReader
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
@@ -18,29 +18,29 @@ import scala.util.control.NonFatal
 
 object DomainFilteringStage extends LazyLogging:
 
-    extension (in: Flow[(Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough)])
-        def filterDomainAggregates(
-            configs: DomainConfigs,
+    extension (in: Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)])
+        def filterDomainMessages(
+            configs: ChannelConfigs,
             parallelism: Parallelism = Parallelism(1)
-        ): Flow[(Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough)] =
-            val chains: Map[(DomainName, AggregateName), FilterChain] =
-                configs.aggregatesByName.flatMap: (domName2aggName, aggConfig) =>
-                    aggConfig.filtering.map(fc => (domName2aggName, FilterChain(fc.filterPaths)))
+        ): Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
+            val chains: Map[(ChannelName, MessageFormatName), FilterChain] =
+                configs.messageFormatsByName.flatMap: (chanName2msgName, msgConfig) =>
+                    msgConfig.filtering.map(fc => (chanName2msgName, FilterChain(fc.filterPaths)))
 
             in.mapPar(parallelism.toInt):
                 case (None, pass) =>
                     (None, pass)
 
-                case (Some(qaid, aggregateOpt), pass) =>
+                case (Some(qmid, messageOpt), pass) =>
                     try
-                        val chainOpt = chains.get((qaid.domainName, qaid.aggregateName))
-                        val filteredDomainAggregate =
+                        val chainOpt = chains.get((qmid.channelName, qmid.messageName))
+                        val filteredDomainMessage =
                             chainOpt match
                                 case Some(chain) =>
-                                    chain(aggregateOpt)
+                                    chain(messageOpt)
                                 case None =>
-                                    aggregateOpt
-                        (Some(qaid, filteredDomainAggregate), pass)
+                                    messageOpt
+                        (Some(qmid, filteredDomainMessage), pass)
                     catch
                         case NonFatal(ex) =>
                             logger.error(

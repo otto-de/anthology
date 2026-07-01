@@ -1,20 +1,22 @@
 name: Anthology
-domains: 
+
+domain:
+  channels: 
     - name: example-domain-a 
       kafka:
         cluster: example-cluster
         topic: example-domain-a-topic
         consumer-group: example-domain-a-group
-      aggregates: 
+      message-formats: 
       - name: AggregateA
-        recognition-path: $.*    
+        recognition-path: $.*
 
     - name: example-domain-b
       kafka:
         cluster: example-cluster-b
         topic: example-domain-b-topic
         consumer-group: example-domain-b-group
-      aggregates:
+      message-formats: 
       - name: AggregateB
         recognition-path: $.*    
         filtering:
@@ -30,7 +32,7 @@ domains:
         cluster: example-cluster
         topic: example-domain-c-topic
         consumer-group: example-domain-c-group
-      aggregates:
+      message-formats: 
       - name: AggregateC1
         recognition-path: $.* 
       - name: AggregateC2
@@ -38,7 +40,7 @@ domains:
       - name: AggregateC3
         recognition-path: $.*
 
-domain-relations: 
+  relations: 
     - type: one-to-many
       rel-from: "example-domain-a/AggregateA"
       rel-to: "example-domain-b/AggregateB"

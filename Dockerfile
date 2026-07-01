@@ -31,8 +31,8 @@ COPY --from=build --chown=anthology:anthology /build/build/install/anthology/ .
 #   - application.yaml
 #   - any transform JSON files referenced in application.yaml
 #
-#  Pass ANTHOLOGY_CREDENTIALS at runtime:
-#   docker run -e ANTHOLOGY_CREDENTIALS='{"cluster-a":{"username":"...","password":"..."}}' ...
+#  Pass ANTHOLOGY_ADDITIONAL_KAFKA_PROPERTIES at runtime:
+#   docker run -e ANTHOLOGY_ADDITIONAL_KAFKA_PROPERTIES='{"cluster-a":{"username":"...","password":"..."}}' ...
 COPY --chown=anthology:anthology config/ /config/
 
 ENV ANTHOLOGY_CONFIG_FILE=/config/application.yaml

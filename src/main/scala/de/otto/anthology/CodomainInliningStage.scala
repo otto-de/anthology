@@ -3,14 +3,14 @@ package de.otto.anthology
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.typesafe.scalalogging.LazyLogging
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
-import de.otto.anthology.AggregateName
-import de.otto.anthology.DomainName
+import de.otto.anthology.ChannelName
 import de.otto.anthology.JsonSupport.mapper
+import de.otto.anthology.Message
+import de.otto.anthology.MessageFormatName
+import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
-import de.otto.anthology.QualifiedAggregateId
-import de.otto.anthology.config.DomainRelationConfigs
+import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -38,76 +38,76 @@ import scala.util.control.NonFatal
   */
 object CodomainInliningStage extends LazyLogging:
 
-    extension (in: Flow[(Seq[AggregateId], Seq[Passthrough])])
-        def inlineDomainAggregates(
-            config: DomainRelationConfigs,
+    extension (in: Flow[(Seq[MessageId], Seq[Passthrough])])
+        def inlineDomainMessages(
+            config: RelationConfigs,
             stateStore: StateStore,
             parallelism: Parallelism = Parallelism(1)
-        ): Flow[(Seq[(AggregateId, Option[Aggregate])], Seq[Passthrough])] =
-            in.mapPar(parallelism.toInt): (codomainAggregateIds, passthroughs) =>
-                val results: Seq[(AggregateId, Option[Aggregate])] =
-                    codomainAggregateIds.flatMap: codomainAggregateId =>
+        ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
+            in.mapPar(parallelism.toInt): (codomainMessageIds, passthroughs) =>
+                val results: Seq[(MessageId, Option[Message])] =
+                    codomainMessageIds.flatMap: codomainMessageId =>
                         try
-                            val codomainKeyStaged = s"${StateStoreSection.STA}/${codomainAggregateId.toString}"
+                            val codomainKeyStaged = s"${StateStoreSection.STA}/${codomainMessageId.toString}"
                             stateStore
                                 .getJson(codomainKeyStaged)
                                 .map(_.asInstanceOf[ObjectNode])
-                                .map: codomainAggregateStaged =>
-                                    val codomainAggregateTemp: ObjectNode = mapper.createObjectNode()
+                                .map: codomainMessageStaged =>
+                                    val codomainMessageTemp: ObjectNode = mapper.createObjectNode()
                                     doInline(
-                                        QualifiedAggregateId(config.root._1, config.root._2, codomainAggregateId),
-                                        codomainAggregateTemp,
-                                        codomainAggregateStaged,
+                                        QualifiedMessageId(config.root._1, config.root._2, codomainMessageId),
+                                        codomainMessageTemp,
+                                        codomainMessageStaged,
                                         stateStore
                                     )
                                     val rootKey: String = s"${config.root._1}/${config.root._2}"
-                                    val codomainAggregateOpt: Option[Aggregate] =
-                                        Option(codomainAggregateTemp.get(rootKey))
+                                    val codomainMessageOpt: Option[Message] =
+                                        Option(codomainMessageTemp.get(rootKey))
                                             .map(_.asInstanceOf[ArrayNode])
                                             .map(_.get(0))
-                                            .map(Aggregate(_))
-                                    (codomainAggregateId, codomainAggregateOpt)
+                                            .map(Message(_))
+                                    (codomainMessageId, codomainMessageOpt)
                         catch
                             case NonFatal(ex) =>
                                 logger.error(
-                                    s"Error processing codomain aggregate ($codomainAggregateId): ${ex.stackTraceAsString}"
+                                    s"Error processing codomain message ($codomainMessageId): ${ex.stackTraceAsString}"
                                 )
                                 None
                 (results, passthroughs)
 
     private def doInline(
-        currentDomainAggregateId: QualifiedAggregateId,
-        parentAggregate: ObjectNode,
-        codomainAggregateStaged: ObjectNode,
+        currentDomainMessageId: QualifiedMessageId,
+        parentMessage: ObjectNode,
+        codomainMessageStaged: ObjectNode,
         stateStore: StateStore
     ): Unit =
-        val currentDomainAggregateOpt: Option[ObjectNode] =
-            Option(codomainAggregateStaged.get(currentDomainAggregateId.qualifierString))
+        val currentDomainMessageOpt: Option[ObjectNode] =
+            Option(codomainMessageStaged.get(currentDomainMessageId.qualifierString))
                 .map(_.asInstanceOf[ObjectNode])
-                .flatMap(j => Option(j.get(currentDomainAggregateId.id.toString)).map(_.asInstanceOf[ObjectNode]))
+                .flatMap(j => Option(j.get(currentDomainMessageId.id.toString)).map(_.asInstanceOf[ObjectNode]))
                 .map(_.deepCopy())
 
-        currentDomainAggregateOpt.foreach: currentDomainAggregate =>
-            val currentDomainAggregatesArray: ArrayNode =
-                Option(parentAggregate.get(currentDomainAggregateId.qualifierString))
+        currentDomainMessageOpt.foreach: currentDomainMessage =>
+            val currentDomainMessagesArray: ArrayNode =
+                Option(parentMessage.get(currentDomainMessageId.qualifierString))
                     .fold {
                         val array = mapper.createArrayNode()
-                        parentAggregate.set(currentDomainAggregateId.qualifierString, array)
+                        parentMessage.set(currentDomainMessageId.qualifierString, array)
                         array
                     }(_.asInstanceOf[ArrayNode])
-            currentDomainAggregatesArray.add(currentDomainAggregate)
+            currentDomainMessagesArray.add(currentDomainMessage)
 
-            val next: Set[QualifiedAggregateId] =
+            val next: Set[QualifiedMessageId] =
                 stateStore
                     .getStringSet(
-                        s"${StateStoreSection.LNK}/$currentDomainAggregateId"
+                        s"${StateStoreSection.LNK}/$currentDomainMessageId"
                     )
                     .map: entry =>
                         val splittedEntry = entry.split("/")
-                        QualifiedAggregateId(
-                            DomainName(splittedEntry(0)),
-                            AggregateName(splittedEntry(1)),
-                            AggregateId(splittedEntry(2))
+                        QualifiedMessageId(
+                            ChannelName(splittedEntry(0)),
+                            MessageFormatName(splittedEntry(1)),
+                            MessageId(splittedEntry(2))
                         )
-            next.foreach: nextAggregateId =>
-                doInline(nextAggregateId, currentDomainAggregate, codomainAggregateStaged, stateStore)
+            next.foreach: nextMessageId =>
+                doInline(nextMessageId, currentDomainMessage, codomainMessageStaged, stateStore)
