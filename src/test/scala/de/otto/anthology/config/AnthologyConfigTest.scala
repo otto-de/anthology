@@ -4,8 +4,8 @@ import com.jayway.jsonpath.JsonPath
 import de.otto.anthology.AggregateName
 import de.otto.anthology.DomainName
 import de.otto.anthology.config.AnthologyConfigFactory
-import de.otto.anthology.config.ManyToOneConfig
-import de.otto.anthology.config.OneToManyConfig
+import de.otto.anthology.config.ManyToOne
+import de.otto.anthology.config.OneToMany
 import de.otto.anthology.headerpropagation.GenerateConstant
 import de.otto.anthology.headerpropagation.GenerateUUID
 import org.scalatest.flatspec.AnyFlatSpec
@@ -50,16 +50,16 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
         aggC3.filtering shouldEqual None
 
         val relAB = config.domainRelations(0)
-        relAB shouldBe a[OneToManyConfig]
-        relAB.from shouldEqual (DomainName("example-domain-a"), AggregateName("AggregateA"))
-        relAB.to shouldEqual (DomainName("example-domain-b"), AggregateName("AggregateB"))
-        relAB.asInstanceOf[OneToManyConfig].fromAggregatePath.getPath shouldEqual JsonPath.compile("$.top.key").getPath
+        relAB shouldBe a[OneToMany]
+        relAB.relFrom shouldEqual (DomainName("example-domain-a"), AggregateName("AggregateA"))
+        relAB.relTo shouldEqual (DomainName("example-domain-b"), AggregateName("AggregateB"))
+        relAB.asInstanceOf[OneToMany].refFromManyToOnePath.getPath shouldEqual JsonPath.compile("$.top.key").getPath
 
         val relBC = config.domainRelations(1)
-        relBC shouldBe a[ManyToOneConfig]
-        relBC.from shouldEqual (DomainName("example-domain-b"), AggregateName("AggregateB"))
-        relBC.to shouldEqual (DomainName("example-domain-c"), AggregateName("AggregateC1"))
-        relBC.asInstanceOf[ManyToOneConfig].toAggregatePath.getPath shouldEqual JsonPath.compile("$.top.key").getPath
+        relBC shouldBe a[ManyToOne]
+        relBC.relFrom shouldEqual (DomainName("example-domain-b"), AggregateName("AggregateB"))
+        relBC.relTo shouldEqual (DomainName("example-domain-c"), AggregateName("AggregateC1"))
+        relBC.asInstanceOf[ManyToOne].refFromManyToOnePath.getPath shouldEqual JsonPath.compile("$.top.key").getPath
 
         val codomain = config.codomain
         codomain.deduplication.get.batchSize shouldEqual 20

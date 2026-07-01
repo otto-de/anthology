@@ -8,20 +8,26 @@ import pureconfig.ConfigReader
 import pureconfig.generic.*
 
 sealed trait DomainRelationConfig derives ConfigReader:
-    def from: (DomainName, AggregateName)
-    def to: (DomainName, AggregateName)
+    def relFrom: (DomainName, AggregateName)
+    def relTo: (DomainName, AggregateName)
+    def refFromManyToOnePath: JsonPath
 
 object DomainRelationConfig:
     given FieldCoproductHint[DomainRelationConfig] = FieldCoproductHint[DomainRelationConfig]("type")
 
-case class OneToManyConfig(
-    from: (DomainName, AggregateName),
-    to: (DomainName, AggregateName),
-    fromAggregatePath: JsonPath
+given domainName2AggregateNameConfigReader: ConfigReader[(DomainName, AggregateName)] =
+    ConfigReader[String].map: d2aStr =>
+        val d2a = d2aStr.split("/")
+        (DomainName(d2a(0)), AggregateName(d2a(1)))
+
+case class OneToMany(
+    relFrom: (DomainName, AggregateName),
+    relTo: (DomainName, AggregateName),
+    refFromManyToOnePath: JsonPath
 ) extends DomainRelationConfig
 
-case class ManyToOneConfig(
-    from: (DomainName, AggregateName),
-    to: (DomainName, AggregateName),
-    toAggregatePath: JsonPath
+case class ManyToOne(
+    relFrom: (DomainName, AggregateName),
+    relTo: (DomainName, AggregateName),
+    refFromManyToOnePath: JsonPath
 ) extends DomainRelationConfig

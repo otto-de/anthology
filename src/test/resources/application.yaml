@@ -39,15 +39,15 @@ domains:
         recognition-path: $.*
 
 domain-relations: 
-    - type: one-to-many-config
-      from: [example-domain-a, AggregateA]
-      to: [example-domain-b, AggregateB]
-      from-aggregate-path: $.top.key
-    - type: many-to-one-config
-      from: [example-domain-b, AggregateB]
-      to: [example-domain-c, AggregateC1]
-      to-aggregate-path: $.top.key
-
+    - type: one-to-many
+      rel-from: "example-domain-a/AggregateA"
+      rel-to: "example-domain-b/AggregateB"
+      ref-from-many-to-one-path: "$.top.key"
+    - type: many-to-one
+      rel-from: "example-domain-b/AggregateB"
+      rel-to: "example-domain-c/AggregateC1"
+      ref-from-many-to-one-path: "$.top.key"
+      
 codomain:
     deduplication:
       batch-size: 20

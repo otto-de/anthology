@@ -3,8 +3,8 @@ package de.otto.anthology.config
 import com.jayway.jsonpath.JsonPath
 import de.otto.anthology.TestData.*
 import de.otto.anthology.config.DomainRelationConfigs
-import de.otto.anthology.config.ManyToOneConfig
-import de.otto.anthology.config.OneToManyConfig
+import de.otto.anthology.config.ManyToOne
+import de.otto.anthology.config.OneToMany
 import org.scalatest.diagrams.Diagrams
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -14,10 +14,10 @@ class DomainRelationConfigsTest extends AnyFlatSpec, Matchers, Diagrams:
     "DomainRelationConfigs" should "init with one relation" in:
 
         // given
-        val books2authors = ManyToOneConfig(
-            from = (mediaDomain, bookAggregate),
-            to = (authorsDomain, authorAggregate),
-            toAggregatePath = JsonPath.compile("$.authorId")
+        val books2authors = ManyToOne(
+            relFrom = (mediaDomain, bookAggregate),
+            relTo = (authorsDomain, authorAggregate),
+            refFromManyToOnePath = JsonPath.compile("$.authorId")
         )
 
         // when
@@ -39,34 +39,34 @@ class DomainRelationConfigsTest extends AnyFlatSpec, Matchers, Diagrams:
     it should "init with a complex relation graph" in:
 
         // given
-        val books2authors = ManyToOneConfig(
-            from = (mediaDomain, bookAggregate),
-            to = (authorsDomain, authorAggregate),
-            toAggregatePath = JsonPath.compile("$.authorId")
+        val books2authors = ManyToOne(
+            relFrom = (mediaDomain, bookAggregate),
+            relTo = (authorsDomain, authorAggregate),
+            refFromManyToOnePath = JsonPath.compile("$.authorId")
         )
 
-        val books2stocks = OneToManyConfig(
-            from = (mediaDomain, bookAggregate),
-            to = (storageDomain, receiptAggregate),
-            fromAggregatePath = JsonPath.compile("$.bookId")
+        val books2stocks = OneToMany(
+            relFrom = (mediaDomain, bookAggregate),
+            relTo = (storageDomain, receiptAggregate),
+            refFromManyToOnePath = JsonPath.compile("$.bookId")
         )
 
-        val stocks2shelves = ManyToOneConfig(
-            from = (storageDomain, receiptAggregate),
-            to = (storageDomain, shelfAggregate),
-            toAggregatePath = JsonPath.compile("$.shelfId")
+        val stocks2shelves = ManyToOne(
+            relFrom = (storageDomain, receiptAggregate),
+            relTo = (storageDomain, shelfAggregate),
+            refFromManyToOnePath = JsonPath.compile("$.shelfId")
         )
 
-        val books2categories = ManyToOneConfig(
-            from = (mediaDomain, bookAggregate),
-            to = (categoriesDomain, categoryAggregate),
-            toAggregatePath = JsonPath.compile("$.categoryId")
+        val books2categories = ManyToOne(
+            relFrom = (mediaDomain, bookAggregate),
+            relTo = (categoriesDomain, categoryAggregate),
+            refFromManyToOnePath = JsonPath.compile("$.categoryId")
         )
 
-        val categories2shelves = ManyToOneConfig(
-            from = (categoriesDomain, categoryAggregate),
-            to = (storageDomain, shelfAggregate),
-            toAggregatePath = JsonPath.compile("$.shelfId")
+        val categories2shelves = ManyToOne(
+            relFrom = (categoriesDomain, categoryAggregate),
+            relTo = (storageDomain, shelfAggregate),
+            refFromManyToOnePath = JsonPath.compile("$.shelfId")
         )
 
         // when

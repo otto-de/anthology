@@ -16,10 +16,10 @@ domains:
     - name: Author
 
 domain-relations:
-  - type: many-to-one-config
-    from: [Media, Book]
-    to: [Authors, Author]
-    to-aggregate-path: $.authorId
+  - type: many-to-one
+    rel-from: "Media/Book"
+    rel-to: "Authors/Author"
+    ref-from-many-to-one-path: "$.authorId"
 
 codomain:
     deduplication:
