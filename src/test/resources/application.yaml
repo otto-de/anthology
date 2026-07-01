@@ -1,11 +1,11 @@
 name: Anthology
-domains:
+domains: 
     - name: example-domain-a 
       kafka:
         cluster: example-cluster
         topic: example-domain-a-topic
         consumer-group: example-domain-a-group
-      aggregates:
+      aggregates: 
       - name: AggregateA
         recognition-path: $.*    
 
@@ -47,7 +47,7 @@ domain-relations:
       rel-from: "example-domain-b/AggregateB"
       rel-to: "example-domain-c/AggregateC1"
       ref-from-many-to-one-path: "$.top.key"
-      
+
 codomain:
     deduplication:
       batch-size: 20
@@ -59,10 +59,12 @@ codomain:
           spec-file: transform-co.json
     header-propagation:
     - type: generate-constant
-      name: foo
-      value: bar
+      name: "specversion"
+      value: "1.0"
     - type: generate-uuid
-      name: fuu
+      name: "id"
+    - type: generate-timestamp
+      name: "time"
     kafka:
       cluster: sink-cluster
       topic: target-topic
@@ -76,7 +78,6 @@ kafka-clusters:
     bootstrap-servers: localhost:9092
 
 rocks-db:
-  db-path: /data/rocksdb
   cache-size-mb: 512
 
 parallelism: 12

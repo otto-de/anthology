@@ -7,6 +7,7 @@ import de.otto.anthology.config.AnthologyConfigFactory
 import de.otto.anthology.config.ManyToOne
 import de.otto.anthology.config.OneToMany
 import de.otto.anthology.headerpropagation.GenerateConstant
+import de.otto.anthology.headerpropagation.GenerateTimestamp
 import de.otto.anthology.headerpropagation.GenerateUUID
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -71,10 +72,11 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
 
         codomain.headerPropagation shouldBe defined
         val headerPropagations = codomain.headerPropagation.get
-        headerPropagations.size shouldEqual 2
-        headerPropagations(0).name shouldEqual "foo"
-        headerPropagations(0).asInstanceOf[GenerateConstant].value shouldEqual "bar"
-        headerPropagations(1).asInstanceOf[GenerateUUID].name shouldEqual "fuu"
+        headerPropagations.size shouldEqual 3
+        headerPropagations(0).name shouldEqual "specversion"
+        headerPropagations(0).asInstanceOf[GenerateConstant].value shouldEqual "1.0"
+        headerPropagations(1).asInstanceOf[GenerateUUID].name shouldEqual "id"
+        headerPropagations(2).asInstanceOf[GenerateTimestamp].name shouldEqual "time"
         codomain.kafka.cluster.toString shouldEqual "sink-cluster"
         codomain.kafka.topic.toString shouldEqual "target-topic"
 
