@@ -1,12 +1,13 @@
 package de.otto.anthology.config
 
 import com.jayway.jsonpath.JsonPath
-import de.otto.anthology.AggregateName
-import de.otto.anthology.DomainName
+import de.otto.anthology.ChannelName
+import de.otto.anthology.MessageFormatName
 import de.otto.anthology.config.AnthologyConfigFactory
 import de.otto.anthology.config.ManyToOne
 import de.otto.anthology.config.OneToMany
 import de.otto.anthology.headerpropagation.GenerateConstant
+import de.otto.anthology.headerpropagation.GenerateTimestamp
 import de.otto.anthology.headerpropagation.GenerateUUID
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -17,22 +18,22 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
 
     "anthology config" should "be successfully loaded" in:
         val config = AnthologyConfigFactory()
-        config.domains.map(_.name) should contain theSameElementsAs Set(
-            DomainName("example-domain-a"),
-            DomainName("example-domain-b"),
-            DomainName("example-domain-c")
+        config.domain.channels.map(_.name) should contain theSameElementsAs Set(
+            ChannelName("example-domain-a"),
+            ChannelName("example-domain-b"),
+            ChannelName("example-domain-c")
         )
 
-        val domA = config.domainsByName(DomainName("example-domain-a"))
+        val domA = config.domain.channelsByName(ChannelName("example-domain-a"))
         domA.kafka.topic.toString shouldEqual "example-domain-a-topic"
 
-        val aggA = domA.aggregatesByName(AggregateName("AggregateA"))
+        val aggA = domA.messageFormatsByName(MessageFormatName("AggregateA"))
         aggA.filtering shouldEqual None
         aggA.idTransformation shouldEqual None
         aggA.transformation shouldEqual None
-        val domB = config.domainsByName(DomainName("example-domain-b"))
+        val domB = config.domain.channelsByName(ChannelName("example-domain-b"))
         domB.kafka.topic.toString shouldEqual "example-domain-b-topic"
-        val aggB = domB.aggregatesByName(AggregateName("AggregateB"))
+        val aggB = domB.messageFormatsByName(MessageFormatName("AggregateB"))
         aggB.filtering.nonEmpty shouldEqual true
         aggB.filtering.map(_.filterPaths.head.getPath) shouldEqual Some(JsonPath.compile("$[?(@.status < 4)]").getPath)
         aggB.idTransformation.nonEmpty shouldEqual true
@@ -40,25 +41,25 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
         aggB.transformation.nonEmpty shouldEqual true
         aggB.transformation.map(_.specFile) shouldEqual Some("transform-a.json")
 
-        val domC = config.domainsByName(DomainName("example-domain-c"))
+        val domC = config.domain.channelsByName(ChannelName("example-domain-c"))
         domC.kafka.topic.toString shouldEqual "example-domain-c-topic"
-        val aggC1 = domC.aggregatesByName(AggregateName("AggregateC1"))
+        val aggC1 = domC.messageFormatsByName(MessageFormatName("AggregateC1"))
         aggC1.filtering shouldEqual None
-        val aggC2 = domC.aggregatesByName(AggregateName("AggregateC2"))
+        val aggC2 = domC.messageFormatsByName(MessageFormatName("AggregateC2"))
         aggC2.filtering shouldEqual None
-        val aggC3 = domC.aggregatesByName(AggregateName("AggregateC3"))
+        val aggC3 = domC.messageFormatsByName(MessageFormatName("AggregateC3"))
         aggC3.filtering shouldEqual None
 
-        val relAB = config.domainRelations(0)
+        val relAB = config.domain.relations(0)
         relAB shouldBe a[OneToMany]
-        relAB.relFrom shouldEqual (DomainName("example-domain-a"), AggregateName("AggregateA"))
-        relAB.relTo shouldEqual (DomainName("example-domain-b"), AggregateName("AggregateB"))
+        relAB.relFrom shouldEqual (ChannelName("example-domain-a"), MessageFormatName("AggregateA"))
+        relAB.relTo shouldEqual (ChannelName("example-domain-b"), MessageFormatName("AggregateB"))
         relAB.asInstanceOf[OneToMany].refFromManyToOnePath.getPath shouldEqual JsonPath.compile("$.top.key").getPath
 
-        val relBC = config.domainRelations(1)
+        val relBC = config.domain.relations(1)
         relBC shouldBe a[ManyToOne]
-        relBC.relFrom shouldEqual (DomainName("example-domain-b"), AggregateName("AggregateB"))
-        relBC.relTo shouldEqual (DomainName("example-domain-c"), AggregateName("AggregateC1"))
+        relBC.relFrom shouldEqual (ChannelName("example-domain-b"), MessageFormatName("AggregateB"))
+        relBC.relTo shouldEqual (ChannelName("example-domain-c"), MessageFormatName("AggregateC1"))
         relBC.asInstanceOf[ManyToOne].refFromManyToOnePath.getPath shouldEqual JsonPath.compile("$.top.key").getPath
 
         val codomain = config.codomain
@@ -71,10 +72,11 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
 
         codomain.headerPropagation shouldBe defined
         val headerPropagations = codomain.headerPropagation.get
-        headerPropagations.size shouldEqual 2
-        headerPropagations(0).name shouldEqual "foo"
-        headerPropagations(0).asInstanceOf[GenerateConstant].value shouldEqual "bar"
-        headerPropagations(1).asInstanceOf[GenerateUUID].name shouldEqual "fuu"
+        headerPropagations.size shouldEqual 3
+        headerPropagations(0).name shouldEqual "specversion"
+        headerPropagations(0).asInstanceOf[GenerateConstant].value shouldEqual "1.0"
+        headerPropagations(1).asInstanceOf[GenerateUUID].name shouldEqual "id"
+        headerPropagations(2).asInstanceOf[GenerateTimestamp].name shouldEqual "time"
         codomain.kafka.cluster.toString shouldEqual "sink-cluster"
         codomain.kafka.topic.toString shouldEqual "target-topic"
 

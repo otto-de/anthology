@@ -1,9 +1,9 @@
 package de.otto.anthology
 
 import com.fasterxml.jackson.databind.JsonNode
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
 import de.otto.anthology.KafkaSourceConfig
+import de.otto.anthology.Message
+import de.otto.anthology.MessageId
 import de.otto.anthology.kafka.ClusterName
 import de.otto.anthology.kafka.ConsumerName
 import de.otto.anthology.kafka.Passthrough
@@ -26,12 +26,12 @@ object TestUtils:
         offset: Long = 0
     ): Passthrough =
         val record =
-            new ConsumerRecord[AggregateId, Option[Aggregate]](
+            new ConsumerRecord[MessageId, Option[Message]](
                 topic,
                 partition,
                 offset,
-                AggregateId(id),
-                Some(Aggregate(jsonNode))
+                MessageId(id),
+                Some(Message(jsonNode))
             )
         Passthrough(ReceivedMessage(record), ConsumerName("test-consumer"))
 
@@ -42,11 +42,11 @@ object TestUtils:
         offset: Long = 0
     ): Passthrough =
         val record =
-            new ConsumerRecord[AggregateId, Option[Aggregate]](
+            new ConsumerRecord[MessageId, Option[Message]](
                 topic,
                 partition,
                 offset,
-                AggregateId(id),
+                MessageId(id),
                 None
             )
         Passthrough(ReceivedMessage(record), ConsumerName("test-consumer"))

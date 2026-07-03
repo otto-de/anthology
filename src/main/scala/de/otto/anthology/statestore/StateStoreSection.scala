@@ -1,11 +1,11 @@
 package de.otto.anthology.statestore
 
 enum StateStoreSection:
-    /** Section where the domain aggregates are persisted.
+    /** Section where the domain messages are persisted.
       */
     case DOM
 
-    /** Section where the codomain aggregates are persisted.
+    /** Section where the codomain messages are persisted.
       */
     case COD
 
@@ -17,6 +17,6 @@ enum StateStoreSection:
       */
     case BLK
 
-    /** Section where the flat-structured codomain aggregates are persisted (staging area).
+    /** Section where the flat-structured codomain messages are persisted (staging area).
       */
     case STA

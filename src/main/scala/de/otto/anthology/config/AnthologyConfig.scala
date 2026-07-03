@@ -1,7 +1,6 @@
 package de.otto.anthology.config
 
 import com.typesafe.scalalogging.LazyLogging
-import de.otto.anthology.DomainName
 import de.otto.anthology.Parallelism
 import de.otto.anthology.statestore.RocksDBConfig
 import pureconfig.ConfigReader
@@ -35,14 +34,12 @@ object AnthologyConfigFactory extends LazyLogging:
 
 case class AnthologyConfig(
     name: String,
-    domains: Seq[DomainConfig],
-    domainRelations: Seq[DomainRelationConfig],
+    domain: DomainConfig,
     codomain: CodomainConfig,
     kafkaClusters: Seq[KafkaClusterConfig],
     rocksDB: RocksDBConfig = RocksDBConfig(),
     parallelism: Parallelism = Parallelism(1)
-):
-    val domainsByName: Map[DomainName, DomainConfig] = domains.map(d => (d.name, d)).toMap
+)
 
 object AnthologyConfig:
     given ConfigReader[AnthologyConfig] = deriveReader[AnthologyConfig]

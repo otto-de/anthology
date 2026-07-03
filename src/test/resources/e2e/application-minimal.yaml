@@ -1,25 +1,26 @@
 name: Anthology-E2E
-domains:
-  - name: Media 
-    kafka:
-      cluster: test-cluster
-      topic: media
-      consumer-group: e2e
-    aggregates:
-    - name: Book
-  - name: Authors 
-    kafka:
-      cluster: test-cluster
-      topic: authors
-      consumer-group: e2e
-    aggregates:
-    - name: Author
 
-domain-relations:
-  - type: many-to-one
-    rel-from: "Media/Book"
-    rel-to: "Authors/Author"
-    ref-from-many-to-one-path: "$.authorId"
+domain:
+  channels:
+    - name: Media 
+      kafka:
+        cluster: test-cluster
+        topic: media
+        consumer-group: e2e
+      message-formats:
+      - name: Book
+    - name: Authors 
+      kafka:
+        cluster: test-cluster
+        topic: authors
+        consumer-group: e2e
+      message-formats:
+      - name: Author
+  relations:
+    - type: many-to-one
+      rel-from: "Media/Book"
+      rel-to: "Authors/Author"
+      ref-from-many-to-one-path: "$.authorId"
 
 codomain:
     deduplication:

@@ -6,10 +6,10 @@ import com.fasterxml.jackson.databind.node.TextNode
 import de.otto.anthology.KafkaSource
 import de.otto.anthology.KafkaSourceConfig
 import de.otto.anthology.KafkaSourceSettings
-import de.otto.anthology.kafka.AggregateDeserializer
-import de.otto.anthology.kafka.AggregateIdDeserializer
 import de.otto.anthology.kafka.ClusterName
 import de.otto.anthology.kafka.ConsumerName
+import de.otto.anthology.kafka.MessageDeserializer
+import de.otto.anthology.kafka.MessageIdDeserializer
 import de.otto.anthology.kafka.TopicName
 import io.github.embeddedkafka.EmbeddedKafka
 import io.github.embeddedkafka.EmbeddedKafkaConfig
@@ -44,8 +44,8 @@ class KafkaSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, Be
             ConsumerSettings
                 .default(group)
                 .bootstrapServers(bootstrapServer.split(",").map(_.trim)*)
-                .keyDeserializer(AggregateIdDeserializer)
-                .valueDeserializer(AggregateDeserializer)
+                .keyDeserializer(MessageIdDeserializer)
+                .valueDeserializer(MessageDeserializer)
                 .autoOffsetReset(AutoOffsetReset.Earliest)
 
         supervised:

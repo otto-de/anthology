@@ -1,18 +1,18 @@
 package de.otto.anthology
 
 import com.jayway.jsonpath.JsonPath
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
 import de.otto.anthology.DomainSource
 import de.otto.anthology.KafkaSourceConfig
 import de.otto.anthology.KafkaSourceSettings
-import de.otto.anthology.QualifiedAggregateId
-import de.otto.anthology.config.AggregateConfig
-import de.otto.anthology.config.DomainConfig
-import de.otto.anthology.kafka.AggregateDeserializer
-import de.otto.anthology.kafka.AggregateIdDeserializer
+import de.otto.anthology.Message
+import de.otto.anthology.MessageId
+import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.config.ChannelConfig
+import de.otto.anthology.config.MessageFormatConfig
 import de.otto.anthology.kafka.ClusterName
 import de.otto.anthology.kafka.ConsumerName
+import de.otto.anthology.kafka.MessageDeserializer
+import de.otto.anthology.kafka.MessageIdDeserializer
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.kafka.TopicName
 import io.github.embeddedkafka.EmbeddedKafka
@@ -53,29 +53,41 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
         val sourceConfig = KafkaSourceConfig(cluster, topic, group)
 
         val aggregateConfigA =
-            AggregateConfig(AggregateName("Agg-A"), Some(JsonPath.compile("$[?(@.foo == 'barA')]")), None, None, None)
+            MessageFormatConfig(
+                MessageFormatName("Agg-A"),
+                Some(JsonPath.compile("$[?(@.foo == 'barA')]")),
+                None,
+                None,
+                None
+            )
 
         val aggregateConfigB =
-            AggregateConfig(AggregateName("Agg-B"), Some(JsonPath.compile("$[?(@.foo == 'barB')]")), None, None, None)
+            MessageFormatConfig(
+                MessageFormatName("Agg-B"),
+                Some(JsonPath.compile("$[?(@.foo == 'barB')]")),
+                None,
+                None,
+                None
+            )
 
         // Non recognitionPath given - should not be recognised:
         val aggregateConfigC =
-            AggregateConfig(AggregateName("Agg-C"), None, None, None, None)
+            MessageFormatConfig(MessageFormatName("Agg-C"), None, None, None, None)
 
         val domainConfig =
-            DomainConfig(
-                DomainName("domain-x"),
+            ChannelConfig(
+                ChannelName("domain-x"),
                 sourceConfig,
                 Seq(aggregateConfigA, aggregateConfigB, aggregateConfigC)
             )
 
         supervised:
-            val consumerSettings: ConsumerSettings[AggregateId, Option[Aggregate]] =
+            val consumerSettings: ConsumerSettings[MessageId, Option[Message]] =
                 ConsumerSettings
                     .default(domainConfig.kafka.consumerGroup)
                     .bootstrapServers(bootstrapServer.split(",").map(_.trim)*)
-                    .keyDeserializer(AggregateIdDeserializer)
-                    .valueDeserializer(AggregateDeserializer)
+                    .keyDeserializer(MessageIdDeserializer)
+                    .valueDeserializer(MessageDeserializer)
                     .autoOffsetReset(AutoOffsetReset.Earliest)
             val consumer = consumerSettings.toThreadSafeConsumerWrapper
             val sourceSettings = KafkaSourceSettings(sourceConfig, ConsumerName(domainConfig.name.toString), consumer)
@@ -84,21 +96,21 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
             val channel = domainSource.runToChannel()
 
             // then
-            val result1: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            val result1: (Option[(QualifiedMessageId, Option[Message])], Passthrough) = channel.receive()
             assert(
                 result1._1.exists(
-                    _._1 == QualifiedAggregateId(DomainName("domain-x"), AggregateName("Agg-A"), AggregateId("1"))
+                    _._1 == QualifiedMessageId(ChannelName("domain-x"), MessageFormatName("Agg-A"), MessageId("1"))
                 )
             )
 
-            val result2: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            val result2: (Option[(QualifiedMessageId, Option[Message])], Passthrough) = channel.receive()
             assert(
                 result2._1.exists(
-                    _._1 == QualifiedAggregateId(DomainName("domain-x"), AggregateName("Agg-B"), AggregateId("2"))
+                    _._1 == QualifiedMessageId(ChannelName("domain-x"), MessageFormatName("Agg-B"), MessageId("2"))
                 )
             )
 
-            val result3: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            val result3: (Option[(QualifiedMessageId, Option[Message])], Passthrough) = channel.receive()
             assert(
                 result3._1.isEmpty
             )
@@ -117,22 +129,22 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
         val sourceConfig = KafkaSourceConfig(cluster, topic, group)
 
         val aggregateConfigA =
-            AggregateConfig(AggregateName("Agg-A"), None, None, None, None)
+            MessageFormatConfig(MessageFormatName("Agg-A"), None, None, None, None)
 
         val domainConfig =
-            DomainConfig(
-                DomainName("domain-x"),
+            ChannelConfig(
+                ChannelName("domain-x"),
                 sourceConfig,
                 Seq(aggregateConfigA)
             )
 
         supervised:
-            val consumerSettings: ConsumerSettings[AggregateId, Option[Aggregate]] =
+            val consumerSettings: ConsumerSettings[MessageId, Option[Message]] =
                 ConsumerSettings
                     .default(domainConfig.kafka.consumerGroup)
                     .bootstrapServers(bootstrapServer.split(",").map(_.trim)*)
-                    .keyDeserializer(AggregateIdDeserializer)
-                    .valueDeserializer(AggregateDeserializer)
+                    .keyDeserializer(MessageIdDeserializer)
+                    .valueDeserializer(MessageDeserializer)
                     .autoOffsetReset(AutoOffsetReset.Earliest)
             val consumer = consumerSettings.toThreadSafeConsumerWrapper
             val sourceSettings = KafkaSourceSettings(sourceConfig, ConsumerName(domainConfig.name.toString), consumer)
@@ -141,24 +153,24 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
             val channel = domainSource.runToChannel()
 
             // then
-            val result1: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            val result1: (Option[(QualifiedMessageId, Option[Message])], Passthrough) = channel.receive()
             assert(
                 result1._1.exists(
-                    _._1 == QualifiedAggregateId(DomainName("domain-x"), AggregateName("Agg-A"), AggregateId("1"))
+                    _._1 == QualifiedMessageId(ChannelName("domain-x"), MessageFormatName("Agg-A"), MessageId("1"))
                 )
             )
 
-            val result2: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            val result2: (Option[(QualifiedMessageId, Option[Message])], Passthrough) = channel.receive()
             assert(
                 result2._1.exists(
-                    _._1 == QualifiedAggregateId(DomainName("domain-x"), AggregateName("Agg-A"), AggregateId("2"))
+                    _._1 == QualifiedMessageId(ChannelName("domain-x"), MessageFormatName("Agg-A"), MessageId("2"))
                 )
             )
 
-            val result3: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            val result3: (Option[(QualifiedMessageId, Option[Message])], Passthrough) = channel.receive()
             assert(
                 result3._1.exists(
-                    _._1 == QualifiedAggregateId(DomainName("domain-x"), AggregateName("Agg-A"), AggregateId("3"))
+                    _._1 == QualifiedMessageId(ChannelName("domain-x"), MessageFormatName("Agg-A"), MessageId("3"))
                 )
             )
 
@@ -176,22 +188,28 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
         val sourceConfig = KafkaSourceConfig(cluster, topic, group)
 
         val aggregateConfigA =
-            AggregateConfig(AggregateName("Agg-A"), Some(JsonPath.compile("$[?(@.foo == 'barA')]")), None, None, None)
+            MessageFormatConfig(
+                MessageFormatName("Agg-A"),
+                Some(JsonPath.compile("$[?(@.foo == 'barA')]")),
+                None,
+                None,
+                None
+            )
 
         val domainConfig =
-            DomainConfig(
-                DomainName("domain-x"),
+            ChannelConfig(
+                ChannelName("domain-x"),
                 sourceConfig,
                 Seq(aggregateConfigA)
             )
 
         supervised:
-            val consumerSettings: ConsumerSettings[AggregateId, Option[Aggregate]] =
+            val consumerSettings: ConsumerSettings[MessageId, Option[Message]] =
                 ConsumerSettings
                     .default(domainConfig.kafka.consumerGroup)
                     .bootstrapServers(bootstrapServer.split(",").map(_.trim)*)
-                    .keyDeserializer(AggregateIdDeserializer)
-                    .valueDeserializer(AggregateDeserializer)
+                    .keyDeserializer(MessageIdDeserializer)
+                    .valueDeserializer(MessageDeserializer)
                     .autoOffsetReset(AutoOffsetReset.Earliest)
             val consumer = consumerSettings.toThreadSafeConsumerWrapper
             val sourceSettings = KafkaSourceSettings(sourceConfig, ConsumerName(domainConfig.name.toString), consumer)
@@ -200,19 +218,19 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
             val channel = domainSource.runToChannel()
 
             // then
-            val result1: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            val result1: (Option[(QualifiedMessageId, Option[Message])], Passthrough) = channel.receive()
             assert(
                 result1._1.exists(
-                    _._1 == QualifiedAggregateId(DomainName("domain-x"), AggregateName("Agg-A"), AggregateId("1"))
+                    _._1 == QualifiedMessageId(ChannelName("domain-x"), MessageFormatName("Agg-A"), MessageId("1"))
                 )
             )
 
-            val result2: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            val result2: (Option[(QualifiedMessageId, Option[Message])], Passthrough) = channel.receive()
             assert(
                 result2._1.isEmpty
             )
 
-            val result3: (Option[(QualifiedAggregateId, Option[Aggregate])], Passthrough) = channel.receive()
+            val result3: (Option[(QualifiedMessageId, Option[Message])], Passthrough) = channel.receive()
             assert(
                 result3._1.isEmpty
             )

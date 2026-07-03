@@ -10,5 +10,5 @@ case class KafkaClusterConfig(
 
 case class KafkaClusterSettings(
     config: KafkaClusterConfig,
-    credentials: Map[String, String]
+    additionalProperties: Map[String, String]
 )

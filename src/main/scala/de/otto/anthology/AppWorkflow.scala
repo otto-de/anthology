@@ -1,26 +1,26 @@
 package de.otto.anthology
 
-import de.otto.anthology.CodomainCompositionStage.composeCodomainAggregates
-import de.otto.anthology.CodomainDeduplicationStage.deduplicateCodomainAggregates
-import de.otto.anthology.CodomainInliningStage.inlineDomainAggregates
-import de.otto.anthology.CodomainPersistenceStage.persistCodomainAggregates
-import de.otto.anthology.CodomainTriggeringStage.triggerAffectedCodomainAggregates
-import de.otto.anthology.DomainLinkingStage.linkDomainAggregates
-import de.otto.anthology.DomainPersistenceStage.persistDomainAggregates
-import de.otto.anthology.KafkaSink.emit
+import de.otto.anthology.CodomainCompositionStage.composeCodomainMessages
+import de.otto.anthology.CodomainDeduplicationStage.deduplicateCodomainMessages
+import de.otto.anthology.CodomainInliningStage.inlineDomainMessages
+import de.otto.anthology.CodomainPersistenceStage.persistCodomainMessages
+import de.otto.anthology.CodomainTriggeringStage.triggerAffectedCodomainMessages
+import de.otto.anthology.DomainLinkingStage.linkDomainMessages
+import de.otto.anthology.DomainPersistenceStage.persistDomainMessages
+import de.otto.anthology.KafkaSink.emitCodomainMessages
+import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.config.CodomainConfig
-import de.otto.anthology.config.DomainConfigs
-import de.otto.anthology.config.DomainRelationConfigs
 import de.otto.anthology.config.KafkaClusterSettings
-import de.otto.anthology.filtering.CodomainFilteringStage.filterCodomainAggregates
-import de.otto.anthology.filtering.DomainFilteringStage.filterDomainAggregates
+import de.otto.anthology.config.RelationConfigs
+import de.otto.anthology.filtering.CodomainFilteringStage.filterCodomainMessages
+import de.otto.anthology.filtering.DomainFilteringStage.filterDomainMessages
 import de.otto.anthology.headerpropagation.HeaderPropagationStage.propagateHeaders
 import de.otto.anthology.kafka.ClusterName
 import de.otto.anthology.kafka.ConsumerMap
 import de.otto.anthology.statestore.StateStore
-import de.otto.anthology.transformation.CodomainTransformationStage.transformCodomainAggregates
-import de.otto.anthology.transformation.DomainTransformationStage.transformDomainAggregateIds
-import de.otto.anthology.transformation.DomainTransformationStage.transformDomainAggregates
+import de.otto.anthology.transformation.CodomainTransformationStage.transformCodomainMessages
+import de.otto.anthology.transformation.DomainTransformationStage.transformDomainMessageIds
+import de.otto.anthology.transformation.DomainTransformationStage.transformDomainMessages
 import ox.Ox
 import ox.channels.BufferCapacity
 
@@ -30,51 +30,51 @@ object AppWorkflow:
 
     /** Sets up and runs Anthology's main application workflow.
       *
-      * @param domainConfigs
-      *   Configuration relating to the domains.
-      * @param domainRelationConfigs
-      *   Configuration relating to the relations between the domains.
+      * @param channelConfigs
+      *   Configuration relating to the channels.
+      * @param relationConfigs
+      *   Configuration relating to the relations between the messages.
       * @param codomainConfig
       *   Codomain-related configuration.
       * @param stateStore
       *   A fully configured instance of the state store.
       */
     def run(
-        domainConfigs: DomainConfigs,
-        domainRelationConfigs: DomainRelationConfigs,
+        channelConfigs: ChannelConfigs,
+        relationConfigs: RelationConfigs,
         codomainConfig: CodomainConfig,
         stateStore: StateStore,
         clusterSettings: Map[ClusterName, KafkaClusterSettings],
         kafkaConsumers: ConsumerMap,
         parallelism: Parallelism
     )(using Ox): Unit =
-        DomainSources(domainConfigs, kafkaConsumers)
+        DomainSources(channelConfigs, kafkaConsumers)
             .buffer()
-            .filterDomainAggregates(domainConfigs, parallelism)
+            .filterDomainMessages(channelConfigs, parallelism)
             .buffer()
-            .transformDomainAggregateIds(domainConfigs)
+            .transformDomainMessageIds(channelConfigs)
             .buffer()
-            .transformDomainAggregates(domainConfigs, parallelism)
+            .transformDomainMessages(channelConfigs, parallelism)
             .buffer()
-            .persistDomainAggregates(stateStore)
+            .persistDomainMessages(stateStore)
             .buffer()
-            .linkDomainAggregates(domainRelationConfigs, stateStore, parallelism)
+            .linkDomainMessages(relationConfigs, stateStore, parallelism)
             .buffer()
-            .triggerAffectedCodomainAggregates(domainRelationConfigs, stateStore, parallelism)
-            .deduplicateCodomainAggregates(codomainConfig.deduplication)
-            .composeCodomainAggregates(stateStore)
+            .triggerAffectedCodomainMessages(relationConfigs, stateStore, parallelism)
+            .deduplicateCodomainMessages(codomainConfig.deduplication)
+            .composeCodomainMessages(stateStore)
             .buffer()
-            .inlineDomainAggregates(domainRelationConfigs, stateStore, parallelism)
+            .inlineDomainMessages(relationConfigs, stateStore, parallelism)
             .buffer()
-            .filterCodomainAggregates(codomainConfig.filtering, parallelism)
+            .filterCodomainMessages(codomainConfig.filtering, parallelism)
             .buffer()
-            .transformCodomainAggregates(codomainConfig.transformation, parallelism)
+            .transformCodomainMessages(codomainConfig.transformation, parallelism)
             .buffer()
-            .persistCodomainAggregates(stateStore, parallelism)
-            .buffer()
+            .persistCodomainMessages(stateStore, parallelism)
             .buffer()
             .propagateHeaders(codomainConfig.headerPropagationConfigs)
-            .emit(
+            .buffer()
+            .emitCodomainMessages(
                 KafkaSinkSettings(
                     codomainConfig.kafka,
                     clusterSettings(codomainConfig.kafka.cluster),

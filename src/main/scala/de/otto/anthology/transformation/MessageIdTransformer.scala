@@ -1,20 +1,20 @@
 package de.otto.anthology.transformation
 
-import de.otto.anthology.AggregateId
+import de.otto.anthology.MessageId
 
 import scala.util.matching.Regex
 
-/** Transforms AggregateIds based on a given regex pattern. It expects exactly one match, otherwise it fails with an
+/** Transforms MessageIds based on a given regex pattern. It expects exactly one match, otherwise it fails with an
   * exception. This one match may contain multiple parts (aka groups), which are all extracted and concatenated,
-  * yielding to the resulting AggregateId.
+  * yielding to the resulting MessageId.
   */
-object AggregateIdTransformer:
-    def apply(id: AggregateId, pattern: Regex): AggregateId =
+object MessageIdTransformer:
+    def apply(id: MessageId, pattern: Regex): MessageId =
         pattern.findFirstMatchIn(id.toString) match
             case Some(firstMatch) =>
                 val matchedParts =
                     for i <- 1 to firstMatch.groupCount
                     yield firstMatch.group(i)
-                AggregateId(matchedParts.mkString("_"))
+                MessageId(matchedParts.mkString("_"))
             case None =>
                 throw new IllegalArgumentException(s"Possible misconfiguration: Could not match $pattern in $id")

@@ -1,8 +1,8 @@
 package de.otto.anthology.headerpropagation
 
 import com.typesafe.scalalogging.LazyLogging
-import de.otto.anthology.Aggregate
-import de.otto.anthology.AggregateId
+import de.otto.anthology.Message
+import de.otto.anthology.MessageId
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.apache.kafka.common.header.Headers
@@ -17,16 +17,17 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
 import java.util.UUID
 import scala.util.control.NonFatal
+
 object HeaderPropagationStage extends LazyLogging:
-    extension (in: Flow[(Seq[(AggregateId, Option[Aggregate])], Seq[Passthrough])])
+    extension (in: Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])])
         def propagateHeaders(
             configsOpt: Option[HeaderPropagationConfigs]
-        ): Flow[(Seq[(AggregateId, Option[Aggregate], Option[Headers])], Seq[Passthrough])] =
+        ): Flow[(Seq[(MessageId, Option[Message], Option[Headers])], Seq[Passthrough])] =
             in.map: (payloads, passthroughs) =>
                 configsOpt match
                     case Some(configs) =>
-                        val payloadsOut: Seq[(AggregateId, Option[Aggregate], Option[Headers])] =
-                            payloads.map: (aggId, aggOpt) =>
+                        val payloadsOut: Seq[(MessageId, Option[Message], Option[Headers])] =
+                            payloads.map: (msgId, msgOpt) =>
                                 val headers = RecordHeaders()
                                 configs.headerPropagation.foreach: config =>
                                     try
@@ -50,12 +51,12 @@ object HeaderPropagationStage extends LazyLogging:
                                             logger.error(
                                                 s"Error setting header for config $config: ${ex.stackTraceAsString}"
                                             )
-                                (aggId, aggOpt, Some(headers))
+                                (msgId, msgOpt, Some(headers))
                         (payloadsOut, passthroughs)
                     case None =>
-                        val payloadsOut: Seq[(AggregateId, Option[Aggregate], Option[Headers])] =
-                            payloads.map: (aggId, aggOpt) =>
-                                (aggId, aggOpt, None)
+                        val payloadsOut: Seq[(MessageId, Option[Message], Option[Headers])] =
+                            payloads.map: (msgId, msgOpt) =>
+                                (msgId, msgOpt, None)
                         (payloadsOut, passthroughs)
 
 case class HeaderPropagationConfigs(headerPropagation: Seq[HeaderPropagationConfig])
