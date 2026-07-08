@@ -3,7 +3,7 @@
 embeddedkafka = "4.2.0" 
 jackson = "2.19.4"
 jolt = "1.2.0"
-jsonpath = "2.10.0"
+jsonpath = "3.0.0"
 junit = "3.2.19.0"
 junit-platform = "6.1.1"
 kafka = "4.2.0"
