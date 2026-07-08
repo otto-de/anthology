@@ -11,6 +11,7 @@ import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
+import org.rocksdb.RocksDBException
 import ox.flow.Flow
 
 import scala.util.control.NonFatal
@@ -36,6 +37,8 @@ object CodomainTriggeringStage extends LazyLogging:
                         val rootIds = identifyAffected(qmid, config, stateStore)
                         (Some(qmid, rootIds), pass)
                     catch
+                        case e: RocksDBException =>
+                            throw e
                         case NonFatal(ex) =>
                             logger.error(
                                 s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
