@@ -5,7 +5,7 @@ plugins {
     // Apply the application plugin to add support for building a CLI application in Java.
     id 'application'
 
-    id 'io.github.cosmicsilence.scalafix' version '0.2.6'
+    id 'io.github.cosmicsilence.scalafix' version '0.2.9'
 
     // IntelliJ IDEA plugin to configure source/javadoc downloads
     id 'idea'
