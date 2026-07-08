@@ -73,7 +73,7 @@ object KafkaSink extends LazyLogging:
                         val producerRecords =
                             payload.map: p =>
                                 val recKey = p._1
-                                val recValue = p._2.getOrElse(null.asInstanceOf[Message])
+                                val recValue = p._2.getOrElse(null.asInstanceOf[Message]) // scalafix:ok
                                 val recHeaders = p._3.getOrElse(Collections.emptyList[Header]())
                                 ProducerRecord(
                                     settings.config.topic.toString,
