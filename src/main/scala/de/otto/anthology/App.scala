@@ -38,82 +38,80 @@ import scala.util.control.NonFatal
 
 object App extends OxApp, LazyLogging:
 
-    private def schedule: Schedule = Schedule.fixedInterval(1.minute)
+    private def retrySchedule: Schedule = Schedule.fixedInterval(1.minute)
 
-    private def policy: ResultPolicy[Throwable, Unit] =
+    private def retryPolicy: ResultPolicy[Throwable, Unit] =
         ResultPolicy.retryWhen:
             case _: RocksDBException => false
-            case _ => true
+            case NonFatal(e) =>
+                logger.error("Nonfatal error occured, will try to recover:", e)
+                true
+            case _ => false
 
     override def run(args: Vector[String])(using Ox): ExitCode =
         try
-            retry(RetryConfig(schedule, policy)):
+            retry(RetryConfig(retrySchedule, retryPolicy)):
                 supervised:
-                    try
-                        // Setup infra...
-                        val cliConfig = CliConf(args)
+                    // Setup infra...
+                    val cliConfig = CliConf(args)
 
-                        val config: AnthologyConfig = AnthologyConfigFactory(cliConfig.anthologyConfigFile.toOption)
-                        logger.info(s"Starting ${config.name}...")
+                    val config: AnthologyConfig = AnthologyConfigFactory(cliConfig.anthologyConfigFile.toOption)
+                    logger.info(s"Starting ${config.name}...")
 
-                        val additionalKafkaProps: Map[ClusterName, Map[String, String]] =
-                            AdditionalKafkaPropertiesLoader(cliConfig.anthologyAdditionalKafkaProperties.toOption)
-                        logger.info("Additional Kafka properties loaded successfully")
+                    val additionalKafkaProps: Map[ClusterName, Map[String, String]] =
+                        AdditionalKafkaPropertiesLoader(cliConfig.anthologyAdditionalKafkaProperties.toOption)
+                    logger.info("Additional Kafka properties loaded successfully")
 
-                        val clusterSettings: Map[ClusterName, KafkaClusterSettings] =
-                            config.kafkaClusters
-                                .map(cc => cc.name -> KafkaClusterSettings(cc, additionalKafkaProps(cc.name)))
-                                .toMap
+                    val clusterSettings: Map[ClusterName, KafkaClusterSettings] =
+                        config.kafkaClusters
+                            .map(cc => cc.name -> KafkaClusterSettings(cc, additionalKafkaProps(cc.name)))
+                            .toMap
 
-                        val channelConfigs: ChannelConfigs = ChannelConfigs(config.domain.channels)
-                        val relationConfigs: RelationConfigs = RelationConfigs(config.domain.relations)
-                        val codomainConfig: CodomainConfig = config.codomain
-                        logger.info("Domain and codomain settings initialized successfully")
+                    val channelConfigs: ChannelConfigs = ChannelConfigs(config.domain.channels)
+                    val relationConfigs: RelationConfigs = RelationConfigs(config.domain.relations)
+                    val codomainConfig: CodomainConfig = config.codomain
+                    logger.info("Domain and codomain settings initialized successfully")
 
-                        val dbPath: String =
-                            cliConfig.anthologyStateStorePath.getOrElse(sys.env("ANTHOLOGY_STATE_STORE_PATH"))
-                        val dbConfig: RocksDBConfig = config.rocksDB
-                        val store: StateStore =
-                            useInScope(acquireRocksDbStateStore(dbConfig, dbPath))(releaseRocksDbStateStore)
-                        logger.info("State store initialized successfully")
+                    val dbPath: String =
+                        cliConfig.anthologyStateStorePath.getOrElse(sys.env("ANTHOLOGY_STATE_STORE_PATH"))
+                    val dbConfig: RocksDBConfig = config.rocksDB
+                    val store: StateStore =
+                        useInScope(acquireRocksDbStateStore(dbConfig, dbPath))(releaseRocksDbStateStore)
+                    logger.info("State store initialized successfully")
 
-                        val kafkaConsumers: ConsumerMap =
-                            channelConfigs.channels
-                                .map: dConfig =>
-                                    val cluster = clusterSettings(dConfig.kafka.cluster)
-                                    val additionalProps = cluster.additionalProperties
-                                    val baseSettings: ConsumerSettings[MessageId, Option[Message]] =
-                                        ConsumerSettings
-                                            .default(dConfig.kafka.consumerGroup)
-                                            .bootstrapServers(cluster.config.bootstrapServers.split(",").map(_.trim)*)
-                                            .keyDeserializer(MessageIdDeserializer)
-                                            .valueDeserializer(MessageDeserializer)
-                                            .autoOffsetReset(AutoOffsetReset.Earliest)
-                                    val consumerSettings: ConsumerSettings[MessageId, Option[Message]] =
-                                        additionalProps.foldLeft(baseSettings)((s, k2v) => s.property(k2v._1, k2v._2))
-                                    // for now, we go with consumer name == domain name
-                                    ConsumerName(dConfig.name.toString) -> consumerSettings.toThreadSafeConsumerWrapper
-                                .toMap
-                        logger.info("Kafka consumers initialized successfully")
+                    val kafkaConsumers: ConsumerMap =
+                        channelConfigs.channels
+                            .map: dConfig =>
+                                val cluster = clusterSettings(dConfig.kafka.cluster)
+                                val additionalProps = cluster.additionalProperties
+                                val baseSettings: ConsumerSettings[MessageId, Option[Message]] =
+                                    ConsumerSettings
+                                        .default(dConfig.kafka.consumerGroup)
+                                        .bootstrapServers(cluster.config.bootstrapServers.split(",").map(_.trim)*)
+                                        .keyDeserializer(MessageIdDeserializer)
+                                        .valueDeserializer(MessageDeserializer)
+                                        .autoOffsetReset(AutoOffsetReset.Earliest)
+                                val consumerSettings: ConsumerSettings[MessageId, Option[Message]] =
+                                    additionalProps.foldLeft(baseSettings)((s, k2v) => s.property(k2v._1, k2v._2))
+                                // for now, we go with consumer name == domain name
+                                ConsumerName(dConfig.name.toString) -> consumerSettings.toThreadSafeConsumerWrapper
+                            .toMap
+                    logger.info("Kafka consumers initialized successfully")
 
-                        // ...and run application
-                        logger.info(s"Starting stream with ${config.parallelism}x parallelism...")
-                        def startHttpServer(): Unit = Server().start()
-                        def startAppWorkflow(): Unit =
-                            AppWorkflow.run(
-                                channelConfigs,
-                                relationConfigs,
-                                codomainConfig,
-                                store,
-                                clusterSettings,
-                                kafkaConsumers,
-                                config.parallelism
-                            )
-                        par(startHttpServer(), startAppWorkflow()).discard
-                    catch
-                        case NonFatal(e) =>
-                            logger.error("Error occured, system will be possibility restarted:", e)
-                            throw e
+                    // ...and run application
+                    logger.info(s"Starting processing with ${config.parallelism}x parallelism...")
+                    def startHttpServer(): Unit = Server().start()
+                    def startAppWorkflow(): Unit =
+                        AppWorkflow.run(
+                            channelConfigs,
+                            relationConfigs,
+                            codomainConfig,
+                            store,
+                            clusterSettings,
+                            kafkaConsumers,
+                            config.parallelism
+                        )
+                    par(startHttpServer(), startAppWorkflow()).discard
             ExitCode.Success
         catch
             case _: RocksDBException =>

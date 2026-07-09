@@ -1,5 +1,6 @@
 [versions]
 
+commons-io = "2.22.0"
 embeddedkafka = "4.2.0" 
 jackson = "2.19.4"
 jolt = "1.2.0"
@@ -20,6 +21,7 @@ tapir = "1.13.20"
 
 [libraries]
 
+commons-io = { module= "commons-io:commons-io", version.ref = "commons-io" } 
 embeddedkafka = { module= "io.github.embeddedkafka:embedded-kafka_3", version.ref = "embeddedkafka" } 
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jolt = { module = "io.github.jolt-community.jolt:jolt-community-core", version.ref = "jolt" }
