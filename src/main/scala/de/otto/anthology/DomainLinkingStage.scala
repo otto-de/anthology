@@ -19,6 +19,7 @@ import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
+import org.rocksdb.RocksDBException
 import ox.filterPar
 import ox.flow.Flow
 import ox.foreachPar
@@ -95,6 +96,8 @@ object DomainLinkingStage extends LazyLogging:
 
                                     (Some(qmid), pass)
                                 catch
+                                    case e: RocksDBException =>
+                                        throw e
                                     case NonFatal(ex) =>
                                         logger.error(s"Error processing deletion ($qmid): ${ex.stackTraceAsString}")
                                         (None, pass)
@@ -239,6 +242,8 @@ object DomainLinkingStage extends LazyLogging:
 
                                     (Some(qmid), pass)
                                 catch
+                                    case e: RocksDBException =>
+                                        throw e
                                     case NonFatal(ex) =>
                                         logger.error(
                                             s"Error setting links ($qmid, $message): ${ex.stackTraceAsString}"
@@ -246,6 +251,8 @@ object DomainLinkingStage extends LazyLogging:
                                         (None, pass)
 
                     catch
+                        case e: RocksDBException =>
+                            throw e
                         case NonFatal(ex) =>
                             logger.error(
                                 s"Error processing record (qualifiedId=$qmid, recordKey=${pass.record.key}, recordValue=${pass.record.value}): ${ex.stackTraceAsString}"

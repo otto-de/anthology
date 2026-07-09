@@ -7,6 +7,7 @@ import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
+import org.rocksdb.RocksDBException
 import ox.flow.Flow
 import ox.mapPar
 
@@ -34,6 +35,8 @@ object CodomainPersistenceStage extends LazyLogging:
                                 stateStore.delete(messageKey)
                         msgId2msg
                     catch
+                        case e: RocksDBException =>
+                            throw e
                         case NonFatal(ex) =>
                             logger.error(
                                 s"Error persisting codomain message (${msgId2msg._1}, ${msgId2msg._2}): ${ex.stackTraceAsString}"

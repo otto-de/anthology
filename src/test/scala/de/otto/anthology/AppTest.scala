@@ -3,6 +3,7 @@ package de.otto.anthology
 import com.fasterxml.jackson.databind.node.ObjectNode
 import de.otto.anthology.JsonSupport.mapper
 import io.github.embeddedkafka.EmbeddedKafka
+import org.apache.commons.io.FileUtils
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.kafka.common.serialization.StringSerializer
 import org.scalatest.BeforeAndAfterAll
@@ -11,6 +12,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import ox.*
 
+import java.io.File
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
@@ -76,7 +78,7 @@ class AppTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, BeforeAndA
 
         // run application
         supervised:
-            timeoutOption(30.seconds):
+            timeoutOption(10.seconds):
                 App.run(cliArgs)
 
         // consume from target topic
@@ -98,3 +100,33 @@ class AppTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, BeforeAndA
         // assert output
         aggregatedMessages(0)._1 shouldEqual expectedMessageKey
         aggregatedMessages(0)._2 shouldEqual expectedMessageValue
+
+    it should "shut down on database error immediately" in:
+
+        val tempDir: Path = Paths.get(System.getProperty("java.io.tmpdir"))
+        val configDir: Path = Paths.get(URLDecoder.decode(getClass.getResource("/e2e").getFile, StandardCharsets.UTF_8))
+
+        val additionalProps = """{"test-cluster":{}}"""
+
+        val dataDir = tempDir.resolve(s"anthology-data/${UUID.randomUUID}")
+        FileUtils.copyDirectory(
+            new File(configDir.resolve("corrupted-db-data").toString),
+            new File(dataDir.toString)
+        )
+
+        val cliArgs =
+            Vector(
+                "--anthology-config-file",
+                s"$configDir/application-minimal.yaml",
+                "--anthology-additional-kafka-properties",
+                additionalProps,
+                "--anthology-state-store-path",
+                dataDir.toString
+            )
+
+        // run application
+        val exitCode =
+            supervised:
+                App.run(cliArgs)
+
+        assert(exitCode == ExitCode.Failure(10))

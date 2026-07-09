@@ -9,7 +9,9 @@ import de.otto.anthology.MessageId
 import de.otto.anthology.QualifiedMessageId
 import de.otto.anthology.TestData.*
 import de.otto.anthology.TestUtils.*
+import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
+import org.rocksdb.RocksDBException
 import org.scalatest.diagrams.Diagrams
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -271,3 +273,39 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
         assert(out(1)._2 == passValid)
         assert(out(2)._1 == None) // emits None (validation error)
         assert(out(2)._2 == passInvalid2)
+
+    it should "rethrow RocksDB database exception" in:
+
+        // given
+        val stateStore = new StateStore {
+            override def get(key: String): Option[Array[Byte]] = throw new RocksDBException("ooopsi")
+
+            override def put(key: String, value: Array[Byte]): Unit = throw new RocksDBException("ooopsi")
+
+            override def delete(key: String): Unit = throw new RocksDBException("ooopsi")
+        }
+
+        val categoryId = MessageId("327")
+        val authorId = MessageId("f3d2b210-7391-40c1-92bd-370caddd59b6")
+
+        val bookId = MessageId("f998258d-5081-4b20-b41d-865134b80eb2")
+        val book =
+            Message(mapper.readTree(s"""
+                {   
+                    "id": "$bookId",
+                    "categoryId": "$categoryId",
+                    "authorId": "$authorId",
+                    "title": "The Lord of the Rings",
+                    "isbn13": "9783608960358",
+                    "price": { "amount": 90, "currency": "Euro"}
+                }
+            """))
+        val pass = mockedKafkaRecord(bookId.toString, book.toJson)
+
+        // when
+        val src = Flow.fromValues(
+            (Some(QualifiedMessageId(mediaChannel, bookMessageFormat, bookId), Some(book)), pass)
+        )
+
+        // then
+        an[RocksDBException] should be thrownBy src.persistDomainMessages(stateStore).runToList()
