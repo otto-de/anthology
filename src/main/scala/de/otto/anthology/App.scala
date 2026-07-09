@@ -18,6 +18,7 @@ import de.otto.anthology.kafka.MessageIdDeserializer
 import de.otto.anthology.statestore.RocksDBConfig
 import de.otto.anthology.statestore.RocksDBStateStore
 import de.otto.anthology.statestore.StateStore
+import org.rocksdb.RocksDBException
 import ox.ExitCode
 import ox.Ox
 import ox.OxApp
@@ -25,6 +26,8 @@ import ox.discard
 import ox.kafka.ConsumerSettings
 import ox.kafka.ConsumerSettings.AutoOffsetReset
 import ox.par
+import ox.resilience.ResultPolicy
+import ox.resilience.RetryConfig
 import ox.resilience.retry
 import ox.scheduling.Schedule
 import ox.supervised
@@ -34,10 +37,21 @@ import scala.concurrent.duration.*
 import scala.util.control.NonFatal
 
 object App extends OxApp, LazyLogging:
+
+    private def retrySchedule: Schedule = Schedule.fixedInterval(1.minute)
+
+    private def retryPolicy: ResultPolicy[Throwable, Unit] =
+        ResultPolicy.retryWhen:
+            case _: RocksDBException => false
+            case NonFatal(e) =>
+                logger.error("Nonfatal error occured, will try to recover:", e)
+                true
+            case _ => false
+
     override def run(args: Vector[String])(using Ox): ExitCode =
-        retry(Schedule.fixedInterval(1.minute)):
-            supervised:
-                try
+        try
+            retry(RetryConfig(retrySchedule, retryPolicy)):
+                supervised:
                     // Setup infra...
                     val cliConfig = CliConf(args)
 
@@ -85,9 +99,9 @@ object App extends OxApp, LazyLogging:
                     logger.info("Kafka consumers initialized successfully")
 
                     // ...and run application
-                    logger.info(s"Starting stream with ${config.parallelism}x parallelism...")
-                    def startHttpServer: Unit = Server().start()
-                    def startAppWorkflow: Unit =
+                    logger.info(s"Starting processing with ${config.parallelism}x parallelism...")
+                    def startHttpServer(): Unit = Server().start()
+                    def startAppWorkflow(): Unit =
                         AppWorkflow.run(
                             channelConfigs,
                             relationConfigs,
@@ -97,13 +111,15 @@ object App extends OxApp, LazyLogging:
                             kafkaConsumers,
                             config.parallelism
                         )
-                    par(startHttpServer, startAppWorkflow).discard
-
-                catch
-                    case NonFatal(e) =>
-                        logger.error("Anthology failed with an exception. Will retry...", e)
-                        throw e
-        ExitCode.Success
+                    par(startHttpServer(), startAppWorkflow()).discard
+            ExitCode.Success
+        catch
+            case _: RocksDBException =>
+                logger.error("Anthology is shutting down due to a database error.")
+                ExitCode.Failure(10)
+            case _ =>
+                logger.error("Anthology is shutting down due to a serious error.")
+                ExitCode.Failure(1)
 
     private def acquireRocksDbStateStore(dbConfig: RocksDBConfig, dbPath: String): RocksDBStateStore =
         logger.info("Acquiring RocksDBStateStore...")
