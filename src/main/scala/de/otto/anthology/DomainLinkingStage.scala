@@ -50,6 +50,13 @@ object DomainLinkingStage extends LazyLogging:
 
                 case (Some(qmid), pass) =>
                     try
+                        val cacheMap = new scala.collection.mutable.HashMap[String, Option[Array[Byte]]]
+                        val cache = new StateStore:
+                            def get(key: String): Option[Array[Byte]] =
+                                cacheMap.getOrElseUpdate(key, stateStore.get(key))
+                            def put(key: String, value: Array[Byte]): Unit = cacheMap.put(key, Some(value))
+                            def delete(key: String): Unit = cacheMap.put(key, None)
+
                         val messageOpt: Option[Message] =
                             stateStore
                                 .getJson(s"${StateStoreSection.DOM}/$qmid")
@@ -103,9 +110,7 @@ object DomainLinkingStage extends LazyLogging:
                                         (None, pass)
 
                             case Some(message) =>
-
                                 try
-
                                     val parsedDoc: DocumentContext = jsonPathContext.parse(message.toJson)
 
                                     // (a) compute and update many-to-one relations starting here
@@ -239,6 +244,19 @@ object DomainLinkingStage extends LazyLogging:
                                     backLinkRemovals.foreachPar(parallelism.toInt): value =>
                                         val _linkKey = s"${StateStoreSection.LNK}/$value"
                                         stateStore.removeStringFromSet(_linkKey, qmid.toString)
+
+                                    cacheMap
+                                        .filterKeys(k =>
+                                            k.startsWith(StateStoreSection.LNK.toString) || k.startsWith(
+                                                StateStoreSection.BLK.toString
+                                            )
+                                        )
+                                        .foreachEntry {
+                                            // can we do batch writes here???
+                                            (k, vOpt) =>
+                                                case (key, Some(v)) => stateStore.put(key, v)
+                                                case (key, None) => stateStore.delete(key) // value == None means delete
+                                        }
 
                                     (Some(qmid), pass)
                                 catch
