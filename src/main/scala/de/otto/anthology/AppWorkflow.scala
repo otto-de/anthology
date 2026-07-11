@@ -58,7 +58,7 @@ object AppWorkflow:
             .buffer()
             .persistDomainMessages(stateStore)
             .buffer()
-            .linkDomainMessages(relationConfigs, stateStore, parallelism)
+            .linkDomainMessages(relationConfigs, stateStore)
             .buffer()
             .triggerAffectedCodomainMessages(relationConfigs, stateStore, parallelism)
             .deduplicateCodomainMessages(codomainConfig.deduplication)
