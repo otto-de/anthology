@@ -9,6 +9,7 @@ junit = "3.2.19.0"
 junit-platform = "6.1.1"
 kafka = "4.2.0"
 opentelemetry = "1.60.1"
+logback = "1.5.38"
 ox = "1.0.4"
 pureconfig = "0.17.10"
 rocksdb = "10.10.1"
@@ -31,6 +32,7 @@ junit-platform-engine = { module = "org.junit.platform:junit-platform-engine", v
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
 kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
 kafka-metadata = { module = "org.apache.kafka:kafka-metadata", version.ref = "kafka" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 opentelemetry-sdk = { module = "io.opentelemetry:opentelemetry-sdk", version.ref = "opentelemetry" }
 opentelemetry-sdk-autoconfig = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure", version.ref = "opentelemetry" }
 opentelemetry-sdk-testing = { module = "io.opentelemetry:opentelemetry-sdk-testing", version.ref = "opentelemetry" }
