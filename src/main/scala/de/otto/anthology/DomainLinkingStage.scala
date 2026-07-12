@@ -16,11 +16,13 @@ import de.otto.anthology.QualifiedMessageId
 import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
+import de.otto.anthology.statestore.StateStore.BatchOperation
 import de.otto.anthology.statestore.StateStoreSection
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.flow.Flow
 
+import scala.collection.MapView
 import scala.util.control.NonFatal
 
 object DomainLinkingStage extends LazyLogging:
@@ -34,10 +36,25 @@ object DomainLinkingStage extends LazyLogging:
                 .build()
         )
 
+    private def flushCache(
+        cacheMapView: MapView[String, Option[Array[Byte]]],
+        stateStore: StateStore
+    ): Unit =
+        val batch = cacheMapView
+            .filterKeys: k =>
+                k.startsWith(StateStoreSection.LNK.toString) || k.startsWith(
+                    StateStoreSection.BLK.toString
+                )
+            .map:
+                case (key, Some(v)) => BatchOperation.Put(key, v)
+                case (key, None) => BatchOperation.Delete(key)
+            .toSeq
+        stateStore.writeBatch(batch)
+
     extension (in: Flow[(Option[QualifiedMessageId], Passthrough)])
         def linkDomainMessages(
             config: RelationConfigs,
-            stateStore: StateStore,
+            stateStore: StateStore
         ): Flow[(Option[QualifiedMessageId], Passthrough)] =
             in.map:
                 case (None, pass) =>
@@ -91,7 +108,7 @@ object DomainLinkingStage extends LazyLogging:
 
                                     // Delete backlinks starting here
                                     cache.removeStringsFromSet(backLinkKey, backLinkValues)
-
+                                    flushCache(cacheMap.view, stateStore)
                                     (Some(qmid), pass)
                                 catch
                                     case e: RocksDBException =>
@@ -236,18 +253,7 @@ object DomainLinkingStage extends LazyLogging:
                                         val _linkKey = s"${StateStoreSection.LNK}/$value"
                                         cache.removeStringFromSet(_linkKey, qmid.toString)
 
-                                    cacheMap.view
-                                        .filterKeys(k =>
-                                            k.startsWith(StateStoreSection.LNK.toString) || k.startsWith(
-                                                StateStoreSection.BLK.toString
-                                            )
-                                        )
-                                        .foreachEntry {
-                                            // can we do batch writes here???
-                                            case (key, Some(v)) => stateStore.put(key, v)
-                                            case (key, None) => stateStore.delete(key) // value == None means delete
-                                        }
-
+                                    flushCache(cacheMap.view, stateStore)
                                     (Some(qmid), pass)
                                 catch
                                     case e: RocksDBException =>

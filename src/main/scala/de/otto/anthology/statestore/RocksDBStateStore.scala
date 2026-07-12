@@ -1,6 +1,7 @@
 package de.otto.anthology.statestore
 
 import de.otto.anthology.statestore.StateStore
+import de.otto.anthology.statestore.StateStore.BatchOperation
 import org.rocksdb.*
 import org.rocksdb.util.SizeUnit
 import ox.*
@@ -86,6 +87,16 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
     override def delete(key: String): Unit =
         runBlocking:
             db.delete(key.getBytes(StandardCharsets.UTF_8))
+
+    override def writeBatch(ops: Seq[BatchOperation]): Unit =
+        runBlocking:
+            val batch = WriteBatch()
+            ops.foreach:
+                case BatchOperation.Put(key, value) =>
+                    batch.put(key.getBytes(StandardCharsets.UTF_8), value)
+                case BatchOperation.Delete(key) =>
+                    batch.delete(key.getBytes(StandardCharsets.UTF_8))
+            db.write(WriteOptions(), batch) //todo: which options should be configured
 
     def close(): Unit =
         runBlocking:

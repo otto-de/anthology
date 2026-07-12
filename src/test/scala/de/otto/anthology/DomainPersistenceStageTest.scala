@@ -283,6 +283,7 @@ class DomainPersistenceStageTest extends AnyFlatSpec, Matchers, Diagrams:
             override def put(key: String, value: Array[Byte]): Unit = throw new RocksDBException("ooopsi")
 
             override def delete(key: String): Unit = throw new RocksDBException("ooopsi")
+            
         }
 
         val categoryId = MessageId("327")
