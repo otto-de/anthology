@@ -1,7 +1,7 @@
 [versions]
 
 commons-io = "2.22.0"
-embeddedkafka = "4.2.0" 
+embeddedkafka = "4.2.0"
 jackson = "2.19.4"
 jolt = "1.2.0"
 jsonpath = "3.0.0"
@@ -9,6 +9,7 @@ junit = "3.2.19.0"
 junit-platform = "6.1.1"
 kafka = "4.2.0"
 opentelemetry = "1.60.1"
+log4j-to-slf4j = "2.26.1"
 logback = "1.5.38"
 ox = "1.0.4"
 pureconfig = "0.17.10"
@@ -22,8 +23,8 @@ tapir = "1.13.26"
 
 [libraries]
 
-commons-io = { module= "commons-io:commons-io", version.ref = "commons-io" } 
-embeddedkafka = { module= "io.github.embeddedkafka:embedded-kafka_3", version.ref = "embeddedkafka" } 
+commons-io = { module = "commons-io:commons-io", version.ref = "commons-io" }
+embeddedkafka = { module = "io.github.embeddedkafka:embedded-kafka_3", version.ref = "embeddedkafka" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jolt = { module = "io.github.jolt-community.jolt:jolt-community-core", version.ref = "jolt" }
 jsonpath = { module = "com.jayway.jsonpath:json-path", version.ref = "jsonpath" }
@@ -32,6 +33,7 @@ junit-platform-engine = { module = "org.junit.platform:junit-platform-engine", v
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
 kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
 kafka-metadata = { module = "org.apache.kafka:kafka-metadata", version.ref = "kafka" }
+log4j-to-slf4j = { module = "org.apache.logging.log4j:log4j-to-slf4j", version.ref = "log4j-to-slf4j" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 opentelemetry-sdk = { module = "io.opentelemetry:opentelemetry-sdk", version.ref = "opentelemetry" }
 opentelemetry-sdk-autoconfig = { module = "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure", version.ref = "opentelemetry" }
