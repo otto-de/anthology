@@ -52,9 +52,6 @@ dependencies {
 
     testRuntimeOnly libs.junit
     testRuntimeOnly libs.junit.platform.engine
-    // uncomment for activating testing logs:
-    // testRuntimeOnly libs.slf4j.simple
-    runtimeOnly libs.slf4j.simple
 }
 
 scala {
