@@ -18,6 +18,7 @@ import de.otto.anthology.kafka.MessageIdDeserializer
 import de.otto.anthology.statestore.RocksDBConfig
 import de.otto.anthology.statestore.RocksDBStateStore
 import de.otto.anthology.statestore.StateStore
+import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.ExitCode
 import ox.Ox
@@ -114,11 +115,11 @@ object App extends OxApp, LazyLogging:
                     par(startHttpServer(), startAppWorkflow()).discard
             ExitCode.Success
         catch
-            case _: RocksDBException =>
-                logger.error("Anthology is shutting down due to a database error.")
+            case ex: RocksDBException =>
+                logger.error(s"Anthology is shutting down due to a database error: ${ex.stackTraceAsString}")
                 ExitCode.Failure(10)
-            case _ =>
-                logger.error("Anthology is shutting down due to a serious error.")
+            case ex =>
+                logger.error(s"Anthology is shutting down due to a serious error: ${ex.stackTraceAsString}")
                 ExitCode.Failure(1)
 
     private def acquireRocksDbStateStore(dbConfig: RocksDBConfig, dbPath: String): RocksDBStateStore =
