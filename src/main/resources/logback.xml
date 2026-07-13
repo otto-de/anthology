@@ -5,5 +5,5 @@
             <Pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%-5level] %logger - %msg%n</Pattern>
         </encoder>
     </appender>
-    <logger name="org.apache.kafkxa" level="WARN"/>
+    <logger name="org.apache.kafka" level="INFO"/>
 </configuration>

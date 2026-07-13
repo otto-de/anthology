@@ -26,7 +26,6 @@ dependencies {
     implementation libs.jackson.databind
     implementation libs.jolt
     implementation libs.jsonpath
-    implementation libs.log4j.to.slf4j
     implementation libs.logback.classic
     implementation libs.opentelemetry.sdk
     implementation libs.opentelemetry.sdk.autoconfig
