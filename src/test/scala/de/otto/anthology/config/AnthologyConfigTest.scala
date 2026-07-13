@@ -85,5 +85,6 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
 
         config.rocksDB.cacheSizeMb shouldEqual 512L
         config.rocksDB.writeBufferSizeMb shouldEqual 64L
+        config.rocksDB.bestEffortsRecovery shouldEqual true
 
         config.parallelism shouldEqual 12

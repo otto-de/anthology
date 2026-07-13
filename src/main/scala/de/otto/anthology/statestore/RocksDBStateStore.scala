@@ -46,6 +46,7 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
             .setCreateIfMissing(true) // If the database doesn't exist, create it.
             .setErrorIfExists(false) // If the database already exists, don't raise an error.
             .setCompressionType(CompressionType.LZ4_COMPRESSION)
+            .setBestEffortsRecovery(config.bestEffortsRecovery)
 
         // Setup cache
         val cacheSize = config.cacheSizeMb * SizeUnit.MB

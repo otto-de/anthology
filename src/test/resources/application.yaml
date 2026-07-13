@@ -1,83 +1,83 @@
 name: Anthology
 
 domain:
-  channels: 
-    - name: example-domain-a 
-      kafka:
-        cluster: example-cluster
-        topic: example-domain-a-topic
-        consumer-group: example-domain-a-group
-      message-formats: 
-      - name: AggregateA
-        recognition-path: $.*
+  channels:
+  - name: example-domain-a
+    kafka:
+      cluster: example-cluster
+      topic: example-domain-a-topic
+      consumer-group: example-domain-a-group
+    message-formats:
+    - name: AggregateA
+      recognition-path: $.*
 
-    - name: example-domain-b
-      kafka:
-        cluster: example-cluster-b
-        topic: example-domain-b-topic
-        consumer-group: example-domain-b-group
-      message-formats: 
-      - name: AggregateB
-        recognition-path: $.*    
-        filtering:
-          filter-paths: 
-            - $[?(@.status < 4)]
-        id-transformation: 
-          pattern: FooBar.Prefix_([0-9]+)
-        transformation:
-          spec-file: transform-a.json
+  - name: example-domain-b
+    kafka:
+      cluster: example-cluster-b
+      topic: example-domain-b-topic
+      consumer-group: example-domain-b-group
+    message-formats:
+    - name: AggregateB
+      recognition-path: $.*
+      filtering:
+        filter-paths:
+        - $[?(@.status < 4)]
+      id-transformation:
+        pattern: FooBar.Prefix_([0-9]+)
+      transformation:
+        spec-file: transform-a.json
 
-    - name: example-domain-c
-      kafka:
-        cluster: example-cluster
-        topic: example-domain-c-topic
-        consumer-group: example-domain-c-group
-      message-formats: 
-      - name: AggregateC1
-        recognition-path: $.* 
-      - name: AggregateC2
-        recognition-path: $.*
-      - name: AggregateC3
-        recognition-path: $.*
+  - name: example-domain-c
+    kafka:
+      cluster: example-cluster
+      topic: example-domain-c-topic
+      consumer-group: example-domain-c-group
+    message-formats:
+    - name: AggregateC1
+      recognition-path: $.*
+    - name: AggregateC2
+      recognition-path: $.*
+    - name: AggregateC3
+      recognition-path: $.*
 
-  relations: 
-    - type: one-to-many
-      rel-from: "example-domain-a/AggregateA"
-      rel-to: "example-domain-b/AggregateB"
-      ref-from-many-to-one-path: "$.top.key"
-    - type: many-to-one
-      rel-from: "example-domain-b/AggregateB"
-      rel-to: "example-domain-c/AggregateC1"
-      ref-from-many-to-one-path: "$.top.key"
+  relations:
+  - type: one-to-many
+    rel-from: "example-domain-a/AggregateA"
+    rel-to: "example-domain-b/AggregateB"
+    ref-from-many-to-one-path: "$.top.key"
+  - type: many-to-one
+    rel-from: "example-domain-b/AggregateB"
+    rel-to: "example-domain-c/AggregateC1"
+    ref-from-many-to-one-path: "$.top.key"
 
 codomain:
-    deduplication:
-      batch-size: 20
-      batching-duration: 30 seconds
-    filtering:
-      filter-paths: 
-        - $[?(@.status < 4)]
-    transformation:
-          spec-file: transform-co.json
-    header-propagation:
-    - type: generate-constant
-      name: "specversion"
-      value: "1.0"
-    - type: generate-uuid
-      name: "id"
-    - type: generate-timestamp
-      name: "time"
-    kafka:
-      cluster: sink-cluster
-      topic: target-topic
+  deduplication:
+    batch-size: 20
+    batching-duration: 30 seconds
+  filtering:
+    filter-paths:
+    - $[?(@.status < 4)]
+  transformation:
+    spec-file: transform-co.json
+  header-propagation:
+  - type: generate-constant
+    name: "specversion"
+    value: "1.0"
+  - type: generate-uuid
+    name: "id"
+  - type: generate-timestamp
+    name: "time"
+  kafka:
+    cluster: sink-cluster
+    topic: target-topic
 
 kafka-clusters:
-  - name: sink-cluster
-    bootstrap-servers: localhost:9092
-  - name: example-cluster
-    bootstrap-servers: localhost:9092
-  - name: example-cluster-b
-    bootstrap-servers: localhost:9092
+- name: sink-cluster
+  bootstrap-servers: localhost:9092
+- name: example-cluster
+  bootstrap-servers: localhost:9092
+- name: example-cluster-b
+  bootstrap-servers: localhost:9092
 
 rocks-db:
   cache-size-mb: 512
