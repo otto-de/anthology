@@ -58,6 +58,7 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
                 Some(JsonPath.compile("$[?(@.foo == 'barA')]")),
                 None,
                 None,
+                None,
                 None
             )
 
@@ -67,12 +68,13 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
                 Some(JsonPath.compile("$[?(@.foo == 'barB')]")),
                 None,
                 None,
+                None,
                 None
             )
 
         // Non recognitionPath given - should not be recognised:
         val aggregateConfigC =
-            MessageFormatConfig(MessageFormatName("Agg-C"), None, None, None, None)
+            MessageFormatConfig(MessageFormatName("Agg-C"), None, None, None, None, None)
 
         val domainConfig =
             ChannelConfig(
@@ -129,7 +131,7 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
         val sourceConfig = KafkaSourceConfig(cluster, topic, group)
 
         val aggregateConfigA =
-            MessageFormatConfig(MessageFormatName("Agg-A"), None, None, None, None)
+            MessageFormatConfig(MessageFormatName("Agg-A"), None, None, None, None, None)
 
         val domainConfig =
             ChannelConfig(
@@ -191,6 +193,7 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
             MessageFormatConfig(
                 MessageFormatName("Agg-A"),
                 Some(JsonPath.compile("$[?(@.foo == 'barA')]")),
+                None,
                 None,
                 None,
                 None
