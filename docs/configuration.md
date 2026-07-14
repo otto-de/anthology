@@ -65,7 +65,7 @@ kafka-clusters:
   - type: array of objects
   - Must contain at least one element
 - subsection [`rocks-db`](#rocks-db)
-  - Configuring certain settings for RocksDB, which is used as embedded database
+  - Configuring certain settings for RocksDB, which is used as embedded database. 
   - optional
   - type: single object
 - attribute `parallelism`
@@ -79,7 +79,7 @@ kafka-clusters:
   - Channels are the origin of the data to be aggregated. At present, and for as long as Anthology is limited to Kafka, a channel corresponds to a Kafka topic. 
   - required
   - type: array of objects
-  - Must contain at least one element
+  - Must contain at least one element. 
 - subsection [`relations`](#domainrelations)
   - This subsection specifies how the domain data are related to one another, which defines the actual aggregation.  
   - required
@@ -91,30 +91,57 @@ kafka-clusters:
   - A freely selectable name for the channel, which is used to refer to this channel (for example, when defining the domain relations). 
   - required
   - type: string
+  - Must be unique across all domain channels. 
 - subsection [`kafka`](#domainchannelskafka)
   - How and by which Kafka topic data is consumed
   - required
   - type: single object
 - subsection [`message-formats`](#domainchannelsmessage-formats)
-  - As Anthology can handle different message formats for each channel, this section sets out how each message format should be processed
+  - As Anthology can handle different message formats for each channel, this section sets out how each message format should be processed. 
   - required
   - type: array of objects
   - Must contain at least one element. In total, at least two message formats must be declared in order to perform an aggregation; that is, either two channels, each with one message format, or one channel with two message formats. 
 
 ### `domain.channels.kafka`
 - attribute `cluster`
+  - Reference to the Kafka cluster on which the channel is located. 
+  - required
+  - type: string
+  - In [`kafka-clusters`](#kafka-clusters), there must be an element whose `name` matches this value. 
 - attribute `topic`
+  - Name of the Kafka topic that implements this channel. 
+  - required
+  - type: string
 - attribute `consumer-group`
+  - Name of the consumer group that is to consume this topic. 
+  - required
+  - type: string
 
 ### `domain.channels.message-formats`
 - attribute `name`
+  - A freely selectable name for the message format, which is used to refer to this message format (for example, when defining the domain relations). 
+  - required
+  - type: string
+  - Must be unique across all message formats of the same domain channel. 
 - attribute `recognition-path`
+  - JSONPath which is used to determine whether a received message corresponds to this message format. A message is recognised as belonging to this format if the query on the message using the JSONPath returns at least one result. 
+  - optional
+  - type: string (JSONPath)
+  - If there is more than one message format in this channel, a recognition path must be specified. 
+  - Unrecognised messages are silently ignored. 
 - subsection [`filtering`](#domainchannelsmessage-formatsfiltering)
+  - Filtering of the received messages. It can be used to filter out or allow the entire message to pass through, or to extract a part of the message. 
+  - optional
+  - type: single object
 - subsection [`id-transformation`](#domainchannelsmessage-formatsid-transformation)
 - subsection [`transformation`](#domainchannelsmessage-formatstransformation)
+- attribute `log-received-messages`
 
 ### `domain.channels.message-formats.filtering`
 - attribute `filter-paths`
+  - The result of the JSONPath-based filtering is what the query returns using the JSONPath on the message. This can be either the complete message (the filter is passed), nothing (filtered out) or a part of the input message. The elements of this array form a filter chain. The result of element n is passed to element n+1 as the input. The result of the last element is the final result. 
+  - required
+  - type: array of string (JSONNode)
 
 ### `domain.channels.message-formats.id-transformation`
 - attribute `pattern`
@@ -134,6 +161,7 @@ kafka-clusters:
 - subsection [`transformation`](#codomaintransformation)
 - subsection [`header-propagation`](#codomainheader-propagation)
 - subsection [`kafka`](#codomainkafka)
+- attribute `log-sent-messages`
 
 ### `codomain.deduplication`
 - attribute `batch-size`
@@ -161,3 +189,4 @@ kafka-clusters:
 ### `rocks-db`
 - attribute `cache-size-mb`
 - attribute `write-buffer-size-mb`
+- attribute `best-efforts-recovery`
