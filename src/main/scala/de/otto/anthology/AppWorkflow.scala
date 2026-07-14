@@ -78,6 +78,7 @@ object AppWorkflow:
                 KafkaSinkSettings(
                     codomainConfig.kafka,
                     clusterSettings(codomainConfig.kafka.cluster),
-                    kafkaConsumers
+                    kafkaConsumers,
+                    codomainConfig.logSentMessages
                 )
             )

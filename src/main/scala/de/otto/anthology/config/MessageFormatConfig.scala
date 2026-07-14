@@ -14,5 +14,6 @@ case class MessageFormatConfig(
     recognitionPath: Option[JsonPath],
     filtering: Option[DomainFilteringConfig],
     idTransformation: Option[DomainMessageIdTransformationConfig],
-    transformation: Option[DomainMessageTransformationConfig]
+    transformation: Option[DomainMessageTransformationConfig],
+    logReceivedMessages: Option[Boolean]
 ) derives ConfigReader

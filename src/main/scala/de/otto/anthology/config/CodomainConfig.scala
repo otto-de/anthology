@@ -13,7 +13,8 @@ case class CodomainConfig(
     filtering: Option[CodomainFilteringConfig],
     transformation: Option[CodomainTransformationConfig],
     headerPropagation: Option[Seq[HeaderPropagationConfig]],
-    kafka: KafkaSinkConfig
+    kafka: KafkaSinkConfig,
+    logSentMessages: Option[Boolean]
 ) derives ConfigReader:
     def headerPropagationConfigs: Option[HeaderPropagationConfigs] =
         headerPropagation.fold(None): hp =>
