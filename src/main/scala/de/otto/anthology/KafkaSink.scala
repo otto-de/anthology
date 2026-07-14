@@ -67,6 +67,7 @@ object KafkaSink extends LazyLogging:
                     fork:
                         Flow.fromSource(committerChannel).broadcast(commitChannelPerConsumer).runDrain()
                 var logCnt = 0
+
                 // setup sink which sends incoming data to both publisher channel and committer channel
                 in
                     .map: (payload, offsets) =>
@@ -86,6 +87,11 @@ object KafkaSink extends LazyLogging:
                     .map: (producerRecords, offsets) =>
                         if logCnt % 100 == 0 then logger.info("Published and committed 100 batches...")
                         logCnt += 1
+                        if settings.logSentMessages.getOrElse(false) then
+                            producerRecords.foreach: record =>
+                                logger.info(
+                                    s"Sending codomain message id=${record.key}, msg=${record.value}"
+                                )
                         producerRecords.foreach(publishChannel.send)
                         offsets.foreach(committerChannel.send)
                     .runDrain()
@@ -97,5 +103,6 @@ case class KafkaSinkConfig(cluster: ClusterName, topic: TopicName) derives Confi
 case class KafkaSinkSettings(
     config: KafkaSinkConfig,
     clusterSettings: KafkaClusterSettings,
-    consumers: ConsumerMap
+    consumers: ConsumerMap,
+    logSentMessages: Option[Boolean]
 )

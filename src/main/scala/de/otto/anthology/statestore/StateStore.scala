@@ -20,6 +20,11 @@ trait StateStore:
 
     def putJson(key: String, value: JsonNode): Unit = put(key, mapper.writeValueAsBytes(value))
 
+    def writeBatch(operations: Seq[StateStore.BatchOperation]): Unit =
+        operations.foreach:
+            case StateStore.BatchOperation.Put(key, value) => put(key, value)
+            case StateStore.BatchOperation.Delete(key) => delete(key)
+
     def getStringSet(key: String): Set[String] =
         get(key) match
             case Some(value) =>
@@ -59,3 +64,7 @@ object StateStore:
     val ELEMENT_SEPARATOR: String = ";"
 
     val SEGMENT_SEPARATOR: String = "/"
+
+    enum BatchOperation:
+        case Put(key: String, value: Array[Byte])
+        case Delete(key: String)

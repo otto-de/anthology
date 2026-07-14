@@ -2,34 +2,37 @@ name: Anthology-E2E
 
 domain:
   channels:
-    - name: Media 
-      kafka:
-        cluster: test-cluster
-        topic: media
-        consumer-group: e2e
-      message-formats:
-      - name: Book
-    - name: Authors 
-      kafka:
-        cluster: test-cluster
-        topic: authors
-        consumer-group: e2e
-      message-formats:
-      - name: Author
-  relations:
-    - type: many-to-one
-      rel-from: "Media/Book"
-      rel-to: "Authors/Author"
-      ref-from-many-to-one-path: "$.authorId"
-
-codomain:
-    deduplication:
-      batch-size: 1
-      batching-duration: 1 second
+  - name: Media
     kafka:
       cluster: test-cluster
-      topic: rich-books
+      topic: media
+      consumer-group: e2e
+    message-formats:
+    - name: Book
+  - name: Authors
+    kafka:
+      cluster: test-cluster
+      topic: authors
+      consumer-group: e2e
+    message-formats:
+    - name: Author
+  relations:
+  - type: many-to-one
+    rel-from: "Media/Book"
+    rel-to: "Authors/Author"
+    ref-from-many-to-one-path: "$.authorId"
+
+codomain:
+  deduplication:
+    batch-size: 1
+    batching-duration: 1 second
+  kafka:
+    cluster: test-cluster
+    topic: rich-books
 
 kafka-clusters:
-  - name: test-cluster
-    bootstrap-servers: localhost:6001
+- name: test-cluster
+  bootstrap-servers: localhost:6001
+
+rocks-db:
+  best-efforts-recovery: false

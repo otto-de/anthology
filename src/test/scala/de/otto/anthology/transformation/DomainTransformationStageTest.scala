@@ -43,6 +43,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                                 None,
                                 None,
                                 None,
+                                None,
                                 None
                             )
                         )
@@ -84,6 +85,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                                 None,
                                 None,
                                 Some(DomainMessageIdTransformationConfig("ABC-([0-9a-zA-Z-]+)".r)),
+                                None,
                                 None
                             )
                         )
@@ -94,6 +96,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                         Seq(
                             MessageFormatConfig(
                                 aggregateYB,
+                                None,
                                 None,
                                 None,
                                 None,
@@ -143,6 +146,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                                 None,
                                 None,
                                 Some(DomainMessageIdTransformationConfig("ABC-([0-9a-zA-Z-]+)".r)),
+                                None,
                                 None
                             )
                         )
@@ -156,6 +160,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                                 None,
                                 None,
                                 Some(DomainMessageIdTransformationConfig("[a-z]*([0-9]+)".r)),
+                                None,
                                 None
                             )
                         )
@@ -219,7 +224,8 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                                 None,
                                 None,
                                 None,
-                                Some(DomainMessageTransformationConfig("transform-domain-x.json"))
+                                Some(DomainMessageTransformationConfig("transform-domain-x.json")),
+                                None
                             )
                         )
                     )

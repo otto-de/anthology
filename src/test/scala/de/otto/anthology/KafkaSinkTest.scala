@@ -172,7 +172,7 @@ class KafkaSinkTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, Befo
 
                 // run the sink
                 forkDiscard:
-                    outputFlow.emitCodomainMessages(KafkaSinkSettings(sinkConfig, clusterSettings, consumers))
+                    outputFlow.emitCodomainMessages(KafkaSinkSettings(sinkConfig, clusterSettings, consumers, None))
 
                 // then (1) - check publishing
                 // Can we find the expected messages on the target topic?

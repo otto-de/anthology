@@ -30,6 +30,10 @@ object DomainSource extends LazyLogging:
                     (None, pass)
                 case Some(messageConfig) =>
                     val qmid = QualifiedMessageId(config.name, messageConfig.name, pass.record.key)
+                    if messageConfig.logReceivedMessages.getOrElse(false) then
+                        logger.info(
+                            s"Received domain message id=$qmid, msg=${messageOpt.map(_.toString).getOrElse("null")}"
+                        )
                     (Some((qmid, messageOpt)), pass)
 
     private def recogniseMessageConfig(
