@@ -26,6 +26,7 @@ dependencies {
     implementation libs.jackson.databind
     implementation libs.jolt
     implementation libs.jsonpath
+    implementation libs.logback.classic
     implementation libs.opentelemetry.sdk
     implementation libs.opentelemetry.sdk.autoconfig
     implementation libs.ox.core
@@ -51,9 +52,6 @@ dependencies {
 
     testRuntimeOnly libs.junit
     testRuntimeOnly libs.junit.platform.engine
-    // uncomment for activating testing logs:
-    // testRuntimeOnly libs.slf4j.simple
-    runtimeOnly libs.slf4j.simple
 }
 
 scala {
