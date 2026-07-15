@@ -9,6 +9,7 @@ import de.otto.anthology.kafka.MessageIdSerializer
 import de.otto.anthology.kafka.MessageSerializer
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.kafka.TopicName
+import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.apache.kafka.common.header.Header
 import org.apache.kafka.common.header.Headers
@@ -32,6 +33,8 @@ object KafkaSink extends LazyLogging:
                     .bootstrapServers(settings.clusterSettings.config.bootstrapServers.split(",").map(_.trim)*)
                     .keySerializer(MessageIdSerializer)
                     .valueSerializer(MessageSerializer)
+                    .property(ProducerConfig.BATCH_SIZE_CONFIG, 32768.toString) // 32kB
+                    .property(ProducerConfig.LINGER_MS_CONFIG, 3000.toString) // 3s
             val producerSettings: ProducerSettings[MessageId, Message] =
                 additionalProps.foldLeft(baseSettings)((s, k2v) => s.property(k2v._1, k2v._2))
 
