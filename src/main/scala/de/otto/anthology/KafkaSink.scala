@@ -69,7 +69,6 @@ object KafkaSink extends LazyLogging:
                 val commitFork =
                     fork:
                         Flow.fromSource(committerChannel).broadcast(commitChannelPerConsumer).runDrain()
-                var logCnt = 0
 
                 // setup sink which sends incoming data to both publisher channel and committer channel
                 in
@@ -87,16 +86,19 @@ object KafkaSink extends LazyLogging:
                                     recHeaders
                                 ) // scalafix:ok
                         (producerRecords, offsets)
-                    .map: (producerRecords, offsets) =>
-                        if logCnt % 100 == 0 then logger.info("Published and committed 100 batches...")
-                        logCnt += 1
+                    .tap: (producerRecords, _) =>
                         if settings.logSentMessages.getOrElse(false) then
                             producerRecords.foreach: record =>
                                 logger.info(
                                     s"Sending codomain message id=${record.key}, msg=${record.value}"
                                 )
+                    .map: (producerRecords, offsets) =>
                         producerRecords.foreach(publishChannel.send)
                         offsets.foreach(committerChannel.send)
+                    .mapStateful(0): (cnt, _) =>
+                        if cnt % 100 == 0 then
+                            logger.info("Published and committed 100 batches of codomain messages to Kafka")
+                        (cnt + 1, ())
                     .runDrain()
 
                 (publishFork.join(), commitForkPerConsumer.join(), commitFork.join())
