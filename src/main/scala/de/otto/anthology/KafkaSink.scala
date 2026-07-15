@@ -35,6 +35,7 @@ object KafkaSink extends LazyLogging:
                     .valueSerializer(MessageSerializer)
                     .property(ProducerConfig.BATCH_SIZE_CONFIG, 32768.toString) // 32kB
                     .property(ProducerConfig.LINGER_MS_CONFIG, 3000.toString) // 3s
+                    .property(ProducerConfig.COMPRESSION_TYPE_CONFIG, "lz4")
             val producerSettings: ProducerSettings[MessageId, Message] =
                 additionalProps.foldLeft(baseSettings)((s, k2v) => s.property(k2v._1, k2v._2))
 
