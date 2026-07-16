@@ -89,14 +89,15 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
             db.delete(key.getBytes(StandardCharsets.UTF_8))
 
     override def writeBatch(ops: Seq[BatchOperation]): Unit =
-        runBlocking:
-            val batch = WriteBatch()
-            ops.foreach:
-                case BatchOperation.Put(key, value) =>
-                    batch.put(key.getBytes(StandardCharsets.UTF_8), value)
-                case BatchOperation.Delete(key) =>
-                    batch.delete(key.getBytes(StandardCharsets.UTF_8))
-            db.write(WriteOptions(), batch) //todo: which options should be configured
+        if ops.nonEmpty then
+            runBlocking:
+                val batch = WriteBatch()
+                ops.foreach:
+                    case BatchOperation.Put(key, value) =>
+                        batch.put(key.getBytes(StandardCharsets.UTF_8), value)
+                    case BatchOperation.Delete(key) =>
+                        batch.delete(key.getBytes(StandardCharsets.UTF_8))
+                db.write(WriteOptions(), batch) // todo: which options should be configured
 
     def close(): Unit =
         runBlocking:

@@ -235,18 +235,19 @@ object DomainLinkingStage extends LazyLogging:
         )
 
     private def flushCache(
-        cacheMapView: MapView[String, Option[Array[Byte]]],
+        cacheView: MapView[String, Option[Array[Byte]]],
         stateStore: StateStore
     ): Unit =
-        val batch = cacheMapView
-            .filterKeys: k =>
-                k.startsWith(StateStoreSection.LNK.toString) || k.startsWith(
-                    StateStoreSection.BLK.toString
-                )
-            .map:
-                case (key, Some(v)) => BatchOperation.Put(key, v)
-                case (key, None) => BatchOperation.Delete(key)
-            .toSeq
+        val batch: Seq[BatchOperation] =
+            cacheView
+                .filterKeys: k =>
+                    k.startsWith(StateStoreSection.LNK.toString) || k.startsWith(
+                        StateStoreSection.BLK.toString
+                    )
+                .map:
+                    case (key, Some(v)) => BatchOperation.Put(key, v)
+                    case (key, None) => BatchOperation.Delete(key)
+                .toSeq
         stateStore.writeBatch(batch)
 
     private case class StateStoreCache(getFromDb: String => Option[Array[Byte]]) extends StateStore:
