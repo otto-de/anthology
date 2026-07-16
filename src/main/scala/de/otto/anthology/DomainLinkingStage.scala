@@ -51,6 +51,13 @@ object DomainLinkingStage extends LazyLogging:
             .toSeq
         stateStore.writeBatch(batch)
 
+    private case class StateStoreCache(getFromDb: String => Option[Array[Byte]]) extends StateStore:
+        private val cacheMap = new scala.collection.mutable.HashMap[String, Option[Array[Byte]]]
+        def get(key: String): Option[Array[Byte]] = cacheMap.getOrElseUpdate(key, getFromDb(key))
+        def put(key: String, value: Array[Byte]): Unit = cacheMap.put(key, Some(value))
+        def delete(key: String): Unit = cacheMap.put(key, None)
+        def view: MapView[String, Option[Array[Byte]]] = cacheMap.view
+
     extension (in: Flow[(Option[QualifiedMessageId], Passthrough)])
         def linkDomainMessages(
             config: RelationConfigs,
@@ -62,12 +69,7 @@ object DomainLinkingStage extends LazyLogging:
 
                 case (Some(qmid), pass) =>
                     try
-                        val cacheMap = new scala.collection.mutable.HashMap[String, Option[Array[Byte]]]
-                        val cache = new StateStore:
-                            def get(key: String): Option[Array[Byte]] =
-                                cacheMap.getOrElseUpdate(key, stateStore.get(key))
-                            def put(key: String, value: Array[Byte]): Unit = cacheMap.put(key, Some(value))
-                            def delete(key: String): Unit = cacheMap.put(key, None)
+                        val cache = StateStoreCache(stateStore.get)
 
                         val messageOpt: Option[Message] =
                             cache
@@ -108,7 +110,7 @@ object DomainLinkingStage extends LazyLogging:
                                 // Delete backlinks starting here
                                 cache.removeStringsFromSet(backLinkKey, backLinkValues)
 
-                                flushCache(cacheMap.view, stateStore)
+                                flushCache(cache.view, stateStore)
                                 (Some(qmid), pass)
 
                             case Some(message) =>
@@ -242,7 +244,7 @@ object DomainLinkingStage extends LazyLogging:
                                     val _linkKey = s"${StateStoreSection.LNK}/$value"
                                     cache.removeStringFromSet(_linkKey, qmid.toString)
 
-                                flushCache(cacheMap.view, stateStore)
+                                flushCache(cache.view, stateStore)
                                 (Some(qmid), pass)
 
                     catch
