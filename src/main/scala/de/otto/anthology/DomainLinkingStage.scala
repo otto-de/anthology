@@ -27,37 +27,6 @@ import scala.util.control.NonFatal
 
 object DomainLinkingStage extends LazyLogging:
 
-    private val jsonPathContext: ParseContext =
-        JsonPath.using(
-            Configuration
-                .builder()
-                .jsonProvider(JacksonJsonNodeJsonProvider())
-                .options(JsonPathOption.SUPPRESS_EXCEPTIONS) // When no match: null instead of exception
-                .build()
-        )
-
-    private def flushCache(
-        cacheMapView: MapView[String, Option[Array[Byte]]],
-        stateStore: StateStore
-    ): Unit =
-        val batch = cacheMapView
-            .filterKeys: k =>
-                k.startsWith(StateStoreSection.LNK.toString) || k.startsWith(
-                    StateStoreSection.BLK.toString
-                )
-            .map:
-                case (key, Some(v)) => BatchOperation.Put(key, v)
-                case (key, None) => BatchOperation.Delete(key)
-            .toSeq
-        stateStore.writeBatch(batch)
-
-    private case class StateStoreCache(getFromDb: String => Option[Array[Byte]]) extends StateStore:
-        private val cacheMap = new scala.collection.mutable.HashMap[String, Option[Array[Byte]]]
-        def get(key: String): Option[Array[Byte]] = cacheMap.getOrElseUpdate(key, getFromDb(key))
-        def put(key: String, value: Array[Byte]): Unit = cacheMap.put(key, Some(value))
-        def delete(key: String): Unit = cacheMap.put(key, None)
-        def view: MapView[String, Option[Array[Byte]]] = cacheMap.view
-
     extension (in: Flow[(Option[QualifiedMessageId], Passthrough)])
         def linkDomainMessages(
             config: RelationConfigs,
@@ -255,3 +224,36 @@ object DomainLinkingStage extends LazyLogging:
                                 s"Error processing record (qualifiedId=$qmid, recordKey=${pass.record.key}, recordValue=${pass.record.value}): ${ex.stackTraceAsString}"
                             )
                             (None, pass)
+
+    private val jsonPathContext: ParseContext =
+        JsonPath.using(
+            Configuration
+                .builder()
+                .jsonProvider(JacksonJsonNodeJsonProvider())
+                .options(JsonPathOption.SUPPRESS_EXCEPTIONS) // When no match: null instead of exception
+                .build()
+        )
+
+    private def flushCache(
+        cacheMapView: MapView[String, Option[Array[Byte]]],
+        stateStore: StateStore
+    ): Unit =
+        val batch = cacheMapView
+            .filterKeys: k =>
+                k.startsWith(StateStoreSection.LNK.toString) || k.startsWith(
+                    StateStoreSection.BLK.toString
+                )
+            .map:
+                case (key, Some(v)) => BatchOperation.Put(key, v)
+                case (key, None) => BatchOperation.Delete(key)
+            .toSeq
+        stateStore.writeBatch(batch)
+
+    private case class StateStoreCache(getFromDb: String => Option[Array[Byte]]) extends StateStore:
+        private val cacheMap = new scala.collection.mutable.HashMap[String, Option[Array[Byte]]]
+        def get(key: String): Option[Array[Byte]] = cacheMap.getOrElseUpdate(key, getFromDb(key))
+        def put(key: String, value: Array[Byte]): Unit = cacheMap.put(key, Some(value))
+        def delete(key: String): Unit = cacheMap.put(key, None)
+        def view: MapView[String, Option[Array[Byte]]] = cacheMap.view
+
+end DomainLinkingStage
