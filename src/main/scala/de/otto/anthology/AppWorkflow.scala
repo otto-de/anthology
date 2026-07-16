@@ -26,8 +26,6 @@ import ox.channels.BufferCapacity
 
 object AppWorkflow:
 
-    given defaultBufferCapacity: BufferCapacity = BufferCapacity(4)
-
     /** Sets up and runs Anthology's main application workflow.
       *
       * @param channelConfigs

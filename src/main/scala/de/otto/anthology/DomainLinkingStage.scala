@@ -27,30 +27,6 @@ import scala.util.control.NonFatal
 
 object DomainLinkingStage extends LazyLogging:
 
-    private val jsonPathContext: ParseContext =
-        JsonPath.using(
-            Configuration
-                .builder()
-                .jsonProvider(JacksonJsonNodeJsonProvider())
-                .options(JsonPathOption.SUPPRESS_EXCEPTIONS) // When no match: null instead of exception
-                .build()
-        )
-
-    private def flushCache(
-        cacheMapView: MapView[String, Option[Array[Byte]]],
-        stateStore: StateStore
-    ): Unit =
-        val batch = cacheMapView
-            .filterKeys: k =>
-                k.startsWith(StateStoreSection.LNK.toString) || k.startsWith(
-                    StateStoreSection.BLK.toString
-                )
-            .map:
-                case (key, Some(v)) => BatchOperation.Put(key, v)
-                case (key, None) => BatchOperation.Delete(key)
-            .toSeq
-        stateStore.writeBatch(batch)
-
     extension (in: Flow[(Option[QualifiedMessageId], Passthrough)])
         def linkDomainMessages(
             config: RelationConfigs,
@@ -62,12 +38,7 @@ object DomainLinkingStage extends LazyLogging:
 
                 case (Some(qmid), pass) =>
                     try
-                        val cacheMap = new scala.collection.mutable.HashMap[String, Option[Array[Byte]]]
-                        val cache = new StateStore:
-                            def get(key: String): Option[Array[Byte]] =
-                                cacheMap.getOrElseUpdate(key, stateStore.get(key))
-                            def put(key: String, value: Array[Byte]): Unit = cacheMap.put(key, Some(value))
-                            def delete(key: String): Unit = cacheMap.put(key, None)
+                        val cache = StateStoreCache(stateStore.get)
 
                         val messageOpt: Option[Message] =
                             cache
@@ -80,189 +51,170 @@ object DomainLinkingStage extends LazyLogging:
                                 // when messages on both ends are deleted
                                 // TODO only when "many"-side was deleted?
 
-                                try
-                                    val linkKey = s"${StateStoreSection.LNK}/$qmid"
-                                    val linkValues =
-                                        cache
-                                            .getStringSet(linkKey)
-                                            .filter(v => cache.get(s"${StateStoreSection.DOM}/$v").isEmpty)
+                                val linkKey = s"${StateStoreSection.LNK}/$qmid"
+                                val linkValues =
+                                    cache
+                                        .getStringSet(linkKey)
+                                        .filter(v => cache.get(s"${StateStoreSection.DOM}/$v").isEmpty)
 
-                                    // Delete backlinks ending here
-                                    linkValues.foreach: value =>
-                                        val _backLinkKey = s"${StateStoreSection.BLK}/$value"
-                                        cache.removeStringFromSet(_backLinkKey, qmid.toString)
+                                // Delete backlinks ending here
+                                linkValues.foreach: value =>
+                                    val _backLinkKey = s"${StateStoreSection.BLK}/$value"
+                                    cache.removeStringFromSet(_backLinkKey, qmid.toString)
 
-                                    // Delete links starting here
-                                    cache.removeStringsFromSet(linkKey, linkValues)
+                                // Delete links starting here
+                                cache.removeStringsFromSet(linkKey, linkValues)
 
-                                    val backLinkKey = s"${StateStoreSection.BLK}/$qmid"
-                                    val backLinkValues =
-                                        cache
-                                            .getStringSet(backLinkKey)
-                                            .filter(v => cache.get(s"${StateStoreSection.DOM}/$v").isEmpty)
+                                val backLinkKey = s"${StateStoreSection.BLK}/$qmid"
+                                val backLinkValues =
+                                    cache
+                                        .getStringSet(backLinkKey)
+                                        .filter(v => cache.get(s"${StateStoreSection.DOM}/$v").isEmpty)
 
-                                    // Delete links ending here
-                                    backLinkValues.foreach: value =>
-                                        val _linkKey = s"${StateStoreSection.LNK}/$value"
-                                        cache.removeStringFromSet(_linkKey, qmid.toString)
+                                // Delete links ending here
+                                backLinkValues.foreach: value =>
+                                    val _linkKey = s"${StateStoreSection.LNK}/$value"
+                                    cache.removeStringFromSet(_linkKey, qmid.toString)
 
-                                    // Delete backlinks starting here
-                                    cache.removeStringsFromSet(backLinkKey, backLinkValues)
-                                    flushCache(cacheMap.view, stateStore)
-                                    (Some(qmid), pass)
-                                catch
-                                    case e: RocksDBException =>
-                                        throw e
-                                    case NonFatal(ex) =>
-                                        logger.error(s"Error processing deletion ($qmid): ${ex.stackTraceAsString}")
-                                        (None, pass)
+                                // Delete backlinks starting here
+                                cache.removeStringsFromSet(backLinkKey, backLinkValues)
+
+                                flushCache(cache.view, stateStore)
+                                (Some(qmid), pass)
 
                             case Some(message) =>
-                                try
-                                    val parsedDoc: DocumentContext = jsonPathContext.parse(message.toJson)
+                                val parsedDoc: DocumentContext = jsonPathContext.parse(message.toJson)
 
-                                    // (a) compute and update many-to-one relations starting here
-                                    // (a.1) links
-                                    val linkKey = s"${StateStoreSection.LNK}/$qmid"
+                                // (a) compute and update many-to-one relations starting here
+                                // (a.1) links
+                                val linkKey = s"${StateStoreSection.LNK}/$qmid"
 
-                                    val linkValuesOld: Map[(ChannelName, MessageFormatName), MessageId] =
-                                        cache
-                                            .getStringSet(linkKey)
-                                            .map: entry =>
-                                                val splittedEntry = entry.split("/")
-                                                (
-                                                    ChannelName(splittedEntry(0)),
-                                                    MessageFormatName(splittedEntry(1))
-                                                ) -> MessageId(splittedEntry(2))
-                                            .toMap
+                                val linkValuesOld: Map[(ChannelName, MessageFormatName), MessageId] =
+                                    cache
+                                        .getStringSet(linkKey)
+                                        .map: entry =>
+                                            val splittedEntry = entry.split("/")
+                                            (
+                                                ChannelName(splittedEntry(0)),
+                                                MessageFormatName(splittedEntry(1))
+                                            ) -> MessageId(splittedEntry(2))
+                                        .toMap
 
-                                    val (linkRemovalOpts: Set[Option[String]], linkAdditionOpts: Set[Option[String]]) =
-                                        config.manyToOneRelationsStartingFrom
-                                            .getOrElse(qmid.qualifier, Set.empty)
-                                            .map: mtoConfig =>
-                                                val toMessageKeyOldOpt =
-                                                    linkValuesOld
-                                                        .get(mtoConfig.relTo)
-                                                        .map(toMessageId =>
-                                                            s"${mtoConfig.relTo._1}/${mtoConfig.relTo._2}/$toMessageId"
-                                                        )
-                                                val toMessageKeyNewOpt =
-                                                    Option(parsedDoc.read[ValueNode](mtoConfig.refFromManyToOnePath))
-                                                        .map(v =>
-                                                            if v.canConvertToLong then v.longValue else v.textValue
-                                                        )
-                                                        .map(_.toString)
-                                                        .map(MessageId(_))
-                                                        .map(toMessageId =>
-                                                            s"${mtoConfig.relTo._1}/${mtoConfig.relTo._2}/$toMessageId"
-                                                        )
-                                                (toMessageKeyOldOpt, toMessageKeyNewOpt) match
-                                                    case (None, Some(msgN)) =>
-                                                        // add msgN
-                                                        (None, Some(msgN))
-                                                    case (Some(msgO), None) =>
-                                                        // remove msgO
-                                                        (Some(msgO), None)
-                                                    case (Some(msgO), Some(msgN)) if msgO != msgN =>
-                                                        // remove msgO, add msgN
-                                                        (Some(msgO), Some(msgN))
-                                                    case _ =>
-                                                        // do nothing
-                                                        (None, None)
-                                            .unzip
+                                val (linkRemovalOpts: Set[Option[String]], linkAdditionOpts: Set[Option[String]]) =
+                                    config.manyToOneRelationsStartingFrom
+                                        .getOrElse(qmid.qualifier, Set.empty)
+                                        .map: mtoConfig =>
+                                            val toMessageKeyOldOpt =
+                                                linkValuesOld
+                                                    .get(mtoConfig.relTo)
+                                                    .map(toMessageId =>
+                                                        s"${mtoConfig.relTo._1}/${mtoConfig.relTo._2}/$toMessageId"
+                                                    )
+                                            val toMessageKeyNewOpt =
+                                                Option(parsedDoc.read[ValueNode](mtoConfig.refFromManyToOnePath))
+                                                    .map(v => if v.canConvertToLong then v.longValue else v.textValue)
+                                                    .map(_.toString)
+                                                    .map(MessageId(_))
+                                                    .map(toMessageId =>
+                                                        s"${mtoConfig.relTo._1}/${mtoConfig.relTo._2}/$toMessageId"
+                                                    )
+                                            (toMessageKeyOldOpt, toMessageKeyNewOpt) match
+                                                case (None, Some(msgN)) =>
+                                                    // add msgN
+                                                    (None, Some(msgN))
+                                                case (Some(msgO), None) =>
+                                                    // remove msgO
+                                                    (Some(msgO), None)
+                                                case (Some(msgO), Some(msgN)) if msgO != msgN =>
+                                                    // remove msgO, add msgN
+                                                    (Some(msgO), Some(msgN))
+                                                case _ =>
+                                                    // do nothing
+                                                    (None, None)
+                                        .unzip
 
-                                    val (linkRemovals: Set[String], linkAdditions: Set[String]) =
-                                        (linkRemovalOpts.flatten, linkAdditionOpts.flatten)
+                                val (linkRemovals: Set[String], linkAdditions: Set[String]) =
+                                    (linkRemovalOpts.flatten, linkAdditionOpts.flatten)
 
-                                    cache.removeStringsFromSet(linkKey, linkRemovals)
+                                cache.removeStringsFromSet(linkKey, linkRemovals)
 
-                                    cache.addStringsToSet(linkKey, linkAdditions)
+                                cache.addStringsToSet(linkKey, linkAdditions)
 
-                                    // (a.2) back links
-                                    linkAdditions.foreach: value =>
-                                        val _backLinkKey = s"${StateStoreSection.BLK}/$value"
-                                        cache.addStringToSet(_backLinkKey, qmid.toString)
-                                    linkRemovals.foreach: value =>
-                                        val _backLinkKey = s"${StateStoreSection.BLK}/$value"
-                                        cache.removeStringFromSet(_backLinkKey, qmid.toString)
+                                // (a.2) back links
+                                linkAdditions.foreach: value =>
+                                    val _backLinkKey = s"${StateStoreSection.BLK}/$value"
+                                    cache.addStringToSet(_backLinkKey, qmid.toString)
+                                linkRemovals.foreach: value =>
+                                    val _backLinkKey = s"${StateStoreSection.BLK}/$value"
+                                    cache.removeStringFromSet(_backLinkKey, qmid.toString)
 
-                                    // (b) compute and update one-to-many relations ending here
-                                    // (b.1) back links
-                                    val backLinkKey = s"${StateStoreSection.BLK}/$qmid"
+                                // (b) compute and update one-to-many relations ending here
+                                // (b.1) back links
+                                val backLinkKey = s"${StateStoreSection.BLK}/$qmid"
 
-                                    val backLinkValuesOld: Map[(ChannelName, MessageFormatName), MessageId] =
-                                        cache
-                                            .getStringSet(backLinkKey)
-                                            .map: entry =>
-                                                val splittedEntry = entry.split("/")
-                                                (
-                                                    ChannelName(splittedEntry(0)),
-                                                    MessageFormatName(splittedEntry(1))
-                                                ) -> MessageId(splittedEntry(2))
-                                            .toMap
+                                val backLinkValuesOld: Map[(ChannelName, MessageFormatName), MessageId] =
+                                    cache
+                                        .getStringSet(backLinkKey)
+                                        .map: entry =>
+                                            val splittedEntry = entry.split("/")
+                                            (
+                                                ChannelName(splittedEntry(0)),
+                                                MessageFormatName(splittedEntry(1))
+                                            ) -> MessageId(splittedEntry(2))
+                                        .toMap
 
-                                    val (
-                                        backLinkRemovalOpts: Set[Option[String]],
-                                        backLinkAdditionOpts: Set[Option[String]]
-                                    ) =
-                                        config.oneToManyRelationsLeadingTo
-                                            .getOrElse(qmid.qualifier, Set.empty)
-                                            .map: otmConfig =>
-                                                val fromMessageKeyOldOpt =
-                                                    backLinkValuesOld
-                                                        .get(otmConfig.relFrom)
-                                                        .map(fromMessageId =>
-                                                            s"${otmConfig.relFrom._1}/${otmConfig.relFrom._2}/$fromMessageId"
-                                                        )
-                                                val fromMessageKeyNewOpt =
-                                                    Option(parsedDoc.read[ValueNode](otmConfig.refFromManyToOnePath))
-                                                        .map(v =>
-                                                            if v.canConvertToLong then v.longValue else v.textValue
-                                                        )
-                                                        .map(_.toString)
-                                                        .map(MessageId(_))
-                                                        .map(fromMessageId =>
-                                                            s"${otmConfig.relFrom._1}/${otmConfig.relFrom._2}/$fromMessageId"
-                                                        )
-                                                (fromMessageKeyOldOpt, fromMessageKeyNewOpt) match
-                                                    case (None, Some(msgN)) =>
-                                                        // add msgN
-                                                        (None, Some(msgN))
-                                                    case (Some(msgO), None) =>
-                                                        // remove msgO
-                                                        (Some(msgO), None)
-                                                    case (Some(msgO), Some(msgN)) if msgO != msgN =>
-                                                        // remove msgO, add msgN
-                                                        (Some(msgO), Some(msgN))
-                                                    case _ =>
-                                                        // do nothing
-                                                        (None, None)
-                                            .unzip
+                                val (
+                                    backLinkRemovalOpts: Set[Option[String]],
+                                    backLinkAdditionOpts: Set[Option[String]]
+                                ) =
+                                    config.oneToManyRelationsLeadingTo
+                                        .getOrElse(qmid.qualifier, Set.empty)
+                                        .map: otmConfig =>
+                                            val fromMessageKeyOldOpt =
+                                                backLinkValuesOld
+                                                    .get(otmConfig.relFrom)
+                                                    .map(fromMessageId =>
+                                                        s"${otmConfig.relFrom._1}/${otmConfig.relFrom._2}/$fromMessageId"
+                                                    )
+                                            val fromMessageKeyNewOpt =
+                                                Option(parsedDoc.read[ValueNode](otmConfig.refFromManyToOnePath))
+                                                    .map(v => if v.canConvertToLong then v.longValue else v.textValue)
+                                                    .map(_.toString)
+                                                    .map(MessageId(_))
+                                                    .map(fromMessageId =>
+                                                        s"${otmConfig.relFrom._1}/${otmConfig.relFrom._2}/$fromMessageId"
+                                                    )
+                                            (fromMessageKeyOldOpt, fromMessageKeyNewOpt) match
+                                                case (None, Some(msgN)) =>
+                                                    // add msgN
+                                                    (None, Some(msgN))
+                                                case (Some(msgO), None) =>
+                                                    // remove msgO
+                                                    (Some(msgO), None)
+                                                case (Some(msgO), Some(msgN)) if msgO != msgN =>
+                                                    // remove msgO, add msgN
+                                                    (Some(msgO), Some(msgN))
+                                                case _ =>
+                                                    // do nothing
+                                                    (None, None)
+                                        .unzip
 
-                                    val (backLinkRemovals: Set[String], backLinkAdditions: Set[String]) =
-                                        (backLinkRemovalOpts.flatten, backLinkAdditionOpts.flatten)
+                                val (backLinkRemovals: Set[String], backLinkAdditions: Set[String]) =
+                                    (backLinkRemovalOpts.flatten, backLinkAdditionOpts.flatten)
 
-                                    cache.removeStringsFromSet(backLinkKey, backLinkRemovals)
-                                    cache.addStringsToSet(backLinkKey, backLinkAdditions)
+                                cache.removeStringsFromSet(backLinkKey, backLinkRemovals)
+                                cache.addStringsToSet(backLinkKey, backLinkAdditions)
 
-                                    // (b.2) links
-                                    backLinkAdditions.foreach: value =>
-                                        val _linkKey = s"${StateStoreSection.LNK}/$value"
-                                        cache.addStringToSet(_linkKey, qmid.toString)
-                                    backLinkRemovals.foreach: value =>
-                                        val _linkKey = s"${StateStoreSection.LNK}/$value"
-                                        cache.removeStringFromSet(_linkKey, qmid.toString)
+                                // (b.2) links
+                                backLinkAdditions.foreach: value =>
+                                    val _linkKey = s"${StateStoreSection.LNK}/$value"
+                                    cache.addStringToSet(_linkKey, qmid.toString)
+                                backLinkRemovals.foreach: value =>
+                                    val _linkKey = s"${StateStoreSection.LNK}/$value"
+                                    cache.removeStringFromSet(_linkKey, qmid.toString)
 
-                                    flushCache(cacheMap.view, stateStore)
-                                    (Some(qmid), pass)
-                                catch
-                                    case e: RocksDBException =>
-                                        throw e
-                                    case NonFatal(ex) =>
-                                        logger.error(
-                                            s"Error setting links ($qmid, $message): ${ex.stackTraceAsString}"
-                                        )
-                                        (None, pass)
+                                flushCache(cache.view, stateStore)
+                                (Some(qmid), pass)
 
                     catch
                         case e: RocksDBException =>
@@ -272,3 +224,37 @@ object DomainLinkingStage extends LazyLogging:
                                 s"Error processing record (qualifiedId=$qmid, recordKey=${pass.record.key}, recordValue=${pass.record.value}): ${ex.stackTraceAsString}"
                             )
                             (None, pass)
+
+    private val jsonPathContext: ParseContext =
+        JsonPath.using(
+            Configuration
+                .builder()
+                .jsonProvider(JacksonJsonNodeJsonProvider())
+                .options(JsonPathOption.SUPPRESS_EXCEPTIONS) // When no match: null instead of exception
+                .build()
+        )
+
+    private def flushCache(
+        cacheView: MapView[String, Option[Array[Byte]]],
+        stateStore: StateStore
+    ): Unit =
+        val batch: Seq[BatchOperation] =
+            cacheView
+                .filterKeys: k =>
+                    k.startsWith(StateStoreSection.LNK.toString) || k.startsWith(
+                        StateStoreSection.BLK.toString
+                    )
+                .map:
+                    case (key, Some(v)) => BatchOperation.Put(key, v)
+                    case (key, None) => BatchOperation.Delete(key)
+                .toSeq
+        stateStore.writeBatch(batch)
+
+    private case class StateStoreCache(getFromDb: String => Option[Array[Byte]]) extends StateStore:
+        private val cacheMap = new scala.collection.mutable.HashMap[String, Option[Array[Byte]]]
+        def get(key: String): Option[Array[Byte]] = cacheMap.getOrElseUpdate(key, getFromDb(key))
+        def put(key: String, value: Array[Byte]): Unit = cacheMap.put(key, Some(value))
+        def delete(key: String): Unit = cacheMap.put(key, None)
+        def view: MapView[String, Option[Array[Byte]]] = cacheMap.view
+
+end DomainLinkingStage
