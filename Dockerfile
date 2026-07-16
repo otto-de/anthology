@@ -35,6 +35,9 @@ COPY --from=build --chown=anthology:anthology /build/build/install/anthology/ .
 #   docker run -e ANTHOLOGY_ADDITIONAL_KAFKA_PROPERTIES='{"cluster-a":{"username":"...","password":"..."}}' ...
 COPY --chown=anthology:anthology config/ /config/
 
+# Sensible defaults for JVM options
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:InitialRAMPercentage=50 -XX:MaxRAMPercentage=50 -XX:+UseZGC -XX:+ZGenerational"
+
 ENV ANTHOLOGY_CONFIG_FILE=/config/application.yaml
 
 # State store — /data must be mounted to a persistent volume at runtime.
