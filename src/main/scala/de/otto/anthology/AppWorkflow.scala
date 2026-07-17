@@ -48,11 +48,8 @@ object AppWorkflow:
         logDomainThroughput: Option[Boolean]
     )(using Ox): Unit =
         DomainSources(channelConfigs, kafkaConsumers, logDomainThroughput)
-            .buffer()
             .filterDomainMessages(channelConfigs, parallelism)
-            .buffer()
             .transformDomainMessageIds(channelConfigs)
-            .buffer()
             .transformDomainMessages(channelConfigs, parallelism)
             .buffer()
             .persistDomainMessages(stateStore)
@@ -66,13 +63,11 @@ object AppWorkflow:
             .inlineDomainMessages(relationConfigs, stateStore, parallelism)
             .buffer()
             .filterCodomainMessages(codomainConfig.filtering, parallelism)
-            .buffer()
             .transformCodomainMessages(codomainConfig.transformation, parallelism)
             .buffer()
             .persistCodomainMessages(stateStore, parallelism)
             .buffer()
             .propagateHeaders(codomainConfig.headerPropagationConfigs)
-            .buffer()
             .emitCodomainMessages(
                 KafkaSinkSettings(
                     codomainConfig.kafka,
