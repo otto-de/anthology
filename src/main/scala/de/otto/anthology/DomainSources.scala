@@ -14,14 +14,16 @@ object DomainSources:
 
     def apply(
         configs: ChannelConfigs,
-        consumers: ConsumerMap
+        consumers: ConsumerMap,
+        logThroughput: Option[Boolean]
     )(using Ox): Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
         configs.channels
             .map: config =>
                 // for now we go with consumer name == domain name
                 val consumerName = ConsumerName(config.name.toString)
-                DomainSource(
+                val src = DomainSource(
                     config,
                     KafkaSourceSettings(config.kafka, consumerName, consumers(consumerName))
-                ).count(s"domain source ${config.name.toString}")
+                )
+                if logThroughput.getOrElse(false) then src.count(s"domain source ${config.name.toString}") else src
             .mergeFair()

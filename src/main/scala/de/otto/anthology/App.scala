@@ -110,7 +110,8 @@ object App extends OxApp, LazyLogging:
                             store,
                             clusterSettings,
                             kafkaConsumers,
-                            config.parallelism
+                            config.parallelism,
+                            config.domain.logThroughput
                         )
                     par(startHttpServer(), startAppWorkflow()).discard
             ExitCode.Success

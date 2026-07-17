@@ -44,9 +44,10 @@ object AppWorkflow:
         stateStore: StateStore,
         clusterSettings: Map[ClusterName, KafkaClusterSettings],
         kafkaConsumers: ConsumerMap,
-        parallelism: Parallelism
+        parallelism: Parallelism,
+        logDomainThroughput: Option[Boolean]
     )(using Ox): Unit =
-        DomainSources(channelConfigs, kafkaConsumers)
+        DomainSources(channelConfigs, kafkaConsumers, logDomainThroughput)
             .buffer()
             .filterDomainMessages(channelConfigs, parallelism)
             .buffer()

@@ -97,8 +97,8 @@ object KafkaSink extends LazyLogging:
                         producerRecords.foreach(publishChannel.send)
                         offsets.foreach(committerChannel.send)
                     .mapStateful(0): (cnt, _) =>
-                        if cnt % 100 == 0 then
-                            logger.info("Published and committed 100 batches of codomain messages to Kafka")
+                        if cnt % 1000 == 0 then
+                            logger.info("Published and committed 1000 batches of codomain messages to Kafka")
                         (cnt + 1, ())
                     .runDrain()
 
