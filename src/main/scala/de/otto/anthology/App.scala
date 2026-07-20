@@ -85,7 +85,8 @@ object App extends OxApp, LazyLogging:
                         channelConfigs.channels
                             .map: dConfig =>
                                 val cluster = clusterSettings(dConfig.kafka.cluster)
-                                val additionalProps = cluster.additionalProperties
+                                val additionalProps =
+                                    cluster.additionalProperties ++ dConfig.kafka.additionalConsumerPropertiesAsMap
                                 val baseSettings: ConsumerSettings[MessageId, Option[Message]] =
                                     ConsumerSettings
                                         .default(dConfig.kafka.consumerGroup)

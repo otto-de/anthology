@@ -7,6 +7,11 @@ domain:
       cluster: example-cluster
       topic: example-domain-a-topic
       consumer-group: example-domain-a-group
+      additional-consumer-properties:
+      - name: propA1
+        value: foo
+      - name: propA2
+        value: bar
     message-formats:
     - name: AggregateA
       recognition-path: $.*
@@ -70,6 +75,11 @@ codomain:
   kafka:
     cluster: sink-cluster
     topic: target-topic
+    additional-producer-properties:
+    - name: propC1
+      value: hello
+    - name: propC2
+      value: world
 
 kafka-clusters:
 - name: sink-cluster
