@@ -22,7 +22,7 @@ object AnthologyConfigFactory extends LazyLogging:
         logger.info("Loading Anthology configuration")
         val path: Path =
             cliPath
-                .orElse(sys.env.get("ANTHOLOGY_CONFIG_FILE"))
+                .orElse(sys.env.get(AppArgs.CONFIG_FILE_ENV_VAR))
                 .map(Paths.get(_))
                 .getOrElse(resourcePath("application.yaml"))
         logger.info(s"loading config from $path")

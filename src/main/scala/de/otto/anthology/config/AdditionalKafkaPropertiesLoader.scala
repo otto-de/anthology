@@ -13,11 +13,13 @@ object AdditionalKafkaPropertiesLoader extends LazyLogging:
         new TypeReference {}
 
     def apply(cliProps: Option[String] = None): AdditionalKafkaPropertiesMap =
-        logger.info("Loading additional properties from environment variable ANTHOLOGY_ADDITIONAL_KAFKA_PROPERTIES")
         val json = cliProps.getOrElse(
             sys.env.getOrElse(
-                "ANTHOLOGY_ADDITIONAL_KAFKA_PROPERTIES",
-                throw new IllegalStateException("ANTHOLOGY_ADDITIONAL_KAFKA_PROPERTIES environment variable is not set")
+                AppArgs.ADDITIONAL_KAFKA_PROPERTIES_ENV_VAR,
+                throw new IllegalStateException(
+                    s"${AppArgs.ADDITIONAL_KAFKA_PROPERTIES_ENV_VAR} environment variable is not set and " +
+                        s"no command-line argument ${AppArgs.ADDITIONAL_KAFKA_PROPERTIES_CMD_ARG} given"
+                )
             )
         )
         fromJson(json)

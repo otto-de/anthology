@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.config.AdditionalKafkaPropertiesLoader
 import de.otto.anthology.config.AnthologyConfig
 import de.otto.anthology.config.AnthologyConfigFactory
+import de.otto.anthology.config.AppArgs
 import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.config.CliConf
 import de.otto.anthology.config.CodomainConfig
@@ -74,7 +75,7 @@ object App extends OxApp, LazyLogging:
                     logger.info("Domain and codomain settings initialized successfully")
 
                     val dbPath: String =
-                        cliConfig.anthologyStateStorePath.getOrElse(sys.env("ANTHOLOGY_STATE_STORE_PATH"))
+                        cliConfig.anthologyStateStorePath.getOrElse(sys.env(AppArgs.STATE_STORE_PATH_ENV_VAR))
                     val dbConfig: RocksDBConfig = config.rocksDB
                     val store: StateStore =
                         useInScope(acquireRocksDbStateStore(dbConfig, dbPath))(releaseRocksDbStateStore)
