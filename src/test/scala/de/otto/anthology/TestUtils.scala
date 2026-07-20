@@ -16,7 +16,7 @@ import scala.collection.mutable
 
 object TestUtils:
 
-    def emptyKafkaConfig: KafkaSourceConfig = KafkaSourceConfig(ClusterName(""), TopicName(""), "")
+    def emptyKafkaConfig: KafkaSourceConfig = KafkaSourceConfig(ClusterName(""), TopicName(""), "", None)
 
     def mockedKafkaRecord(
         id: String,

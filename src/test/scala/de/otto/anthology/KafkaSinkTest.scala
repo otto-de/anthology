@@ -73,11 +73,11 @@ class KafkaSinkTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, Befo
                 .valueDeserializer(MessageDeserializer)
                 .autoOffsetReset(AutoOffsetReset.Earliest)
 
-        val sourceConfigA = KafkaSourceConfig(cluster, topicA, group)
-        val sourceConfigB = KafkaSourceConfig(cluster, topicB, group)
-        val sourceConfigC = KafkaSourceConfig(cluster, topicC, group)
+        val sourceConfigA = KafkaSourceConfig(cluster, topicA, group, None)
+        val sourceConfigB = KafkaSourceConfig(cluster, topicB, group, None)
+        val sourceConfigC = KafkaSourceConfig(cluster, topicC, group, None)
 
-        val sinkConfig = KafkaSinkConfig(cluster, topicT)
+        val sinkConfig = KafkaSinkConfig(cluster, topicT, None)
 
         val clusterSettings = KafkaClusterSettings(KafkaClusterConfig(cluster, bootstrapServer), Map.empty)
 

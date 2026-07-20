@@ -50,7 +50,7 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
         publishToKafka(topic.toString, "3", """{ "id": "3", "foo": "barC" }""")
 
         // when
-        val sourceConfig = KafkaSourceConfig(cluster, topic, group)
+        val sourceConfig = KafkaSourceConfig(cluster, topic, group, None)
 
         val aggregateConfigA =
             MessageFormatConfig(
@@ -128,7 +128,7 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
         publishToKafka(topic.toString, "3", """{ "id": "3", "foo": "barC" }""")
 
         // when
-        val sourceConfig = KafkaSourceConfig(cluster, topic, group)
+        val sourceConfig = KafkaSourceConfig(cluster, topic, group, None)
 
         val aggregateConfigA =
             MessageFormatConfig(MessageFormatName("Agg-A"), None, None, None, None, None)
@@ -187,7 +187,7 @@ class DomainSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, B
         publishToKafka(topic.toString, "3", """{ "id": "3", "foo": "barC" }""")
 
         // when
-        val sourceConfig = KafkaSourceConfig(cluster, topic, group)
+        val sourceConfig = KafkaSourceConfig(cluster, topic, group, None)
 
         val aggregateConfigA =
             MessageFormatConfig(

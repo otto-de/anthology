@@ -2,7 +2,9 @@ package de.otto.anthology
 
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.BroadcastStage.broadcast
+import de.otto.anthology.config.AdditionalKafkaProperty
 import de.otto.anthology.config.KafkaClusterSettings
+import de.otto.anthology.config.asMap
 import de.otto.anthology.kafka.ClusterName
 import de.otto.anthology.kafka.ConsumerMap
 import de.otto.anthology.kafka.MessageIdSerializer
@@ -27,7 +29,8 @@ object KafkaSink extends LazyLogging:
 
     extension (in: Flow[(Seq[(MessageId, Option[Message], Option[Headers])], Seq[Passthrough])])
         def emitCodomainMessages(settings: KafkaSinkSettings): Unit =
-            val additionalProps = settings.clusterSettings.additionalProperties
+            val additionalProps: Map[String, String] =
+                settings.clusterSettings.additionalProperties ++ settings.config.additionalProducerPropertiesAsMap
             val baseSettings: ProducerSettings[MessageId, Message] =
                 ProducerSettings.default
                     .bootstrapServers(settings.clusterSettings.config.bootstrapServers.split(",").map(_.trim)*)
@@ -104,7 +107,13 @@ object KafkaSink extends LazyLogging:
 
                 (publishFork.join(), commitForkPerConsumer.join(), commitFork.join())
 
-case class KafkaSinkConfig(cluster: ClusterName, topic: TopicName) derives ConfigReader
+case class KafkaSinkConfig(
+    cluster: ClusterName,
+    topic: TopicName,
+    additionalProducerProperties: Option[Seq[AdditionalKafkaProperty]]
+) derives ConfigReader:
+    def additionalProducerPropertiesAsMap: Map[String, String] =
+        additionalProducerProperties.getOrElse(Seq.empty).asMap
 
 case class KafkaSinkSettings(
     config: KafkaSinkConfig,

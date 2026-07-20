@@ -26,6 +26,8 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
 
         val domA = config.domain.channelsByName(ChannelName("example-domain-a"))
         domA.kafka.topic.toString shouldEqual "example-domain-a-topic"
+        domA.kafka.additionalConsumerPropertiesAsMap.get("propA1") shouldEqual Some("foo")
+        domA.kafka.additionalConsumerPropertiesAsMap.get("propA2") shouldEqual Some("bar")
 
         val aggA = domA.messageFormatsByName(MessageFormatName("AggregateA"))
         aggA.filtering shouldEqual None
@@ -33,6 +35,7 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
         aggA.transformation shouldEqual None
         val domB = config.domain.channelsByName(ChannelName("example-domain-b"))
         domB.kafka.topic.toString shouldEqual "example-domain-b-topic"
+        domB.kafka.additionalConsumerPropertiesAsMap.isEmpty shouldEqual true
         val aggB = domB.messageFormatsByName(MessageFormatName("AggregateB"))
         aggB.filtering.nonEmpty shouldEqual true
         aggB.filtering.map(_.filterPaths.head.getPath) shouldEqual Some(JsonPath.compile("$[?(@.status < 4)]").getPath)
@@ -79,6 +82,8 @@ class AnthologyConfigTest extends AnyFlatSpec, Matchers:
         headerPropagations(2).asInstanceOf[GenerateTimestamp].name shouldEqual "time"
         codomain.kafka.cluster.toString shouldEqual "sink-cluster"
         codomain.kafka.topic.toString shouldEqual "target-topic"
+        codomain.kafka.additionalProducerPropertiesAsMap.get("propC1") shouldEqual Some("hello")
+        codomain.kafka.additionalProducerPropertiesAsMap.get("propC2") shouldEqual Some("world")
 
         config.kafkaClusters(1).name shouldEqual "example-cluster"
         config.kafkaClusters(1).bootstrapServers shouldEqual "localhost:9092"
