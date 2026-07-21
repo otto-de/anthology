@@ -36,7 +36,7 @@ COPY --from=build --chown=anthology:anthology /build/build/install/anthology/ .
 COPY --chown=anthology:anthology config/ /config/
 
 # Sensible defaults for JVM options
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:InitialRAMPercentage=50 -XX:MaxRAMPercentage=50 -XX:+UseZGC -XX:+ZGenerational"
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:InitialRAMPercentage=50 -XX:MaxRAMPercentage=50 -XX:+UseZGC -XX:+ExitOnOutOfMemoryError"
 
 ENV ANTHOLOGY_CONFIG_FILE=/config/application.yaml
 
