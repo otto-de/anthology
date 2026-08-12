@@ -91,5 +91,6 @@ kafka-clusters:
 
 rocks-db:
   cache-size-mb: 512
+  write-buffer-size-mb: 64
 
 parallelism: 12
