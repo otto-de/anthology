@@ -2,16 +2,23 @@ package de.otto.anthology.statestore
 
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStore.BatchOperation
-import org.rocksdb.*
+import org.rocksdb.BlockBasedTableConfig
+import org.rocksdb.BloomFilter
+import org.rocksdb.CompressionType
+import org.rocksdb.LRUCache
+import org.rocksdb.Options
+import org.rocksdb.RocksDB
+import org.rocksdb.WriteBatch
+import org.rocksdb.WriteBufferManager
+import org.rocksdb.WriteOptions
 import org.rocksdb.util.SizeUnit
-import ox.*
+import ox.computeIntensive
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
 
 /** StateStore implementation, backed by [[https://github.com/facebook/rocksdb RocksDB]].
   */
@@ -23,7 +30,7 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
       * Source: [[https://rockthejvm.com/articles/the-ultimate-guide-to-java-virtual-threads#pinned-virtual-threads]]
       */
     private def runBlocking[T](body: => T): T =
-        Future(body)(using RocksDBStateStore.threadPool).get()
+        computeIntensive(RocksDBStateStore.threadPool)(body)
 
     private val db: RocksDB =
         RocksDB.loadLibrary()
@@ -106,8 +113,9 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
                         case BatchOperation.Delete(key) =>
                             batch.delete(key.getBytes(StandardCharsets.UTF_8))
                     val writeOptions = WriteOptions()
+                    // TODO: which options should be configured
                     try
-                        db.write(writeOptions, batch) // todo: which options should be configured
+                        db.write(writeOptions, batch)
                     finally
                         writeOptions.close()
                 finally batch.close()
@@ -117,4 +125,4 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
             db.close()
 
 object RocksDBStateStore:
-    val threadPool: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+    private[RocksDBStateStore] val threadPool: ExecutorService = Executors.newCachedThreadPool()
