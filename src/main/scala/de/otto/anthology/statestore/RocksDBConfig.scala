@@ -11,8 +11,7 @@ import pureconfig.generic.semiauto.deriveReader
 case class RocksDBConfig(
     cacheSizeMb: Long = 0L,
     writeBufferSizeMb: Long = 0L,
-    bestEffortsRecovery: Boolean = true,
-    deactivate: Boolean = false
+    bestEffortsRecovery: Boolean = true
 ):
     assert:
         (cacheSizeMb > 0L && writeBufferSizeMb > 0L && cacheSizeMb > writeBufferSizeMb) || (cacheSizeMb == 0L && writeBufferSizeMb == 0L)
