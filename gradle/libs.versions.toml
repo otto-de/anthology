@@ -17,7 +17,7 @@ scala-library = "3.8.4"
 scalalogging = "3.9.5"
 scalatest = "3.2.20"
 scallop = "6.0.0"
-slf4j = "2.0.17"
+slf4j = "2.0.18"
 tapir = "1.13.26"
 
 [libraries]
