@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import de.otto.anthology.JsonSupport
 import de.otto.anthology.Message
 import io.joltcommunity.jolt.Chainr
+import ox.computeIntensive
 
 object MessageTransformer:
 
@@ -13,8 +14,9 @@ object MessageTransformer:
     private val typeref: TypeReference[Object] = new TypeReference {}
 
     def apply(message: Message, spec: Chainr): Message =
-        val messageJsonValue: Object =
-            mapper.treeToValue(message.toJson, typeref)
-        val resultingJsonValue: Object = spec.transform(messageJsonValue)
-        val resultingJsonTree: JsonNode = mapper.valueToTree(resultingJsonValue)
-        Message(resultingJsonTree)
+        computeIntensive:
+            val messageJsonValue: Object =
+                mapper.treeToValue(message.toJson, typeref)
+            val resultingJsonValue: Object = spec.transform(messageJsonValue)
+            val resultingJsonTree: JsonNode = mapper.valueToTree(resultingJsonValue)
+            Message(resultingJsonTree)
