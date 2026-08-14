@@ -16,6 +16,7 @@ import de.otto.anthology.kafka.ConsumerMap
 import de.otto.anthology.kafka.ConsumerName
 import de.otto.anthology.kafka.MessageDeserializer
 import de.otto.anthology.kafka.MessageIdDeserializer
+import de.otto.anthology.statestore.NoopStateStore
 import de.otto.anthology.statestore.RocksDBConfig
 import de.otto.anthology.statestore.RocksDBStateStore
 import de.otto.anthology.statestore.StateStore
@@ -74,11 +75,13 @@ object App extends OxApp, LazyLogging:
                     val codomainConfig: CodomainConfig = config.codomain
                     logger.info("Domain and codomain settings initialized successfully")
 
-                    val dbPath: String =
-                        cliConfig.anthologyStateStorePath.getOrElse(sys.env(AppArgs.STATE_STORE_PATH_ENV_VAR))
-                    val dbConfig: RocksDBConfig = config.rocksDB
                     val store: StateStore =
-                        useInScope(acquireRocksDbStateStore(dbConfig, dbPath))(releaseRocksDbStateStore)
+                        if config.rocksDB.deactivate then NoopStateStore()
+                        else
+                            val dbPath: String =
+                                cliConfig.anthologyStateStorePath.getOrElse(sys.env(AppArgs.STATE_STORE_PATH_ENV_VAR))
+                            val dbConfig: RocksDBConfig = config.rocksDB
+                            useInScope(acquireRocksDbStateStore(dbConfig, dbPath))(releaseRocksDbStateStore)
                     logger.info("State store initialized successfully")
 
                     val kafkaConsumers: ConsumerMap =
