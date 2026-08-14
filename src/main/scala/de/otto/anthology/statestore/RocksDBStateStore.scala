@@ -49,20 +49,27 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
             .setCompressionType(CompressionType.LZ4_COMPRESSION)
             .setBestEffortsRecovery(config.bestEffortsRecovery)
 
-        // Setup cache
-        val cacheSize = config.cacheSizeMb * SizeUnit.MB
-        val cache = LRUCache(cacheSize)
+        if config.cacheSizeMb > 0L then
+            // Setup cache
+            val cacheSize = config.cacheSizeMb * SizeUnit.MB
+            val cache = LRUCache(cacheSize)
 
-        // Setup block cache
-        tableOptions.setBlockCache(cache)
-        tableOptions.setCacheIndexAndFilterBlocks(true)
-        tableOptions.setCacheIndexAndFilterBlocksWithHighPriority(true)
-        tableOptions.setPinTopLevelIndexAndFilter(true)
+            // Setup block cache
+            tableOptions.setNoBlockCache(false)
+            tableOptions.setBlockCache(cache)
+            tableOptions.setCacheIndexAndFilterBlocks(true)
+            tableOptions.setCacheIndexAndFilterBlocksWithHighPriority(true)
+            tableOptions.setPinTopLevelIndexAndFilter(true)
 
-        // Setup write buffer
-        val writeBufferSize = config.writeBufferSizeMb * SizeUnit.MB
-        val writeBufferManager = new WriteBufferManager(writeBufferSize, cache)
-        options.setWriteBufferManager(writeBufferManager)
+            // Setup write buffer
+            val writeBufferSize = config.writeBufferSizeMb * SizeUnit.MB
+            val writeBufferManager = new WriteBufferManager(writeBufferSize, cache)
+            options.setWriteBufferManager(writeBufferManager)
+        else
+            tableOptions.setNoBlockCache(true)
+            tableOptions.setCacheIndexAndFilterBlocks(false)
+            tableOptions.setCacheIndexAndFilterBlocksWithHighPriority(false)
+            tableOptions.setPinTopLevelIndexAndFilter(false)
 
         // Setup bloom filter
         val bloomFilter = BloomFilter()
@@ -92,12 +99,18 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
         if ops.nonEmpty then
             runBlocking:
                 val batch = WriteBatch()
-                ops.foreach:
-                    case BatchOperation.Put(key, value) =>
-                        batch.put(key.getBytes(StandardCharsets.UTF_8), value)
-                    case BatchOperation.Delete(key) =>
-                        batch.delete(key.getBytes(StandardCharsets.UTF_8))
-                db.write(WriteOptions(), batch) // todo: which options should be configured
+                try
+                    ops.foreach:
+                        case BatchOperation.Put(key, value) =>
+                            batch.put(key.getBytes(StandardCharsets.UTF_8), value)
+                        case BatchOperation.Delete(key) =>
+                            batch.delete(key.getBytes(StandardCharsets.UTF_8))
+                    val writeOptions = WriteOptions()
+                    try
+                        db.write(writeOptions, batch) // todo: which options should be configured
+                    finally
+                        writeOptions.close()
+                finally batch.close()
 
     def close(): Unit =
         runBlocking:
