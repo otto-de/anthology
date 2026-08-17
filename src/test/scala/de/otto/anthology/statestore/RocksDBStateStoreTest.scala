@@ -44,7 +44,7 @@ class RocksDBStateStoreTest extends AnyFlatSpec, Matchers, Diagrams, BeforeAndAf
         stateStore = RocksDBStateStore(config, tmpFile.getAbsolutePath)
 
     override def afterEach(): Unit =
-        stateStore.close()
+        stateStore.shutdown()
         println(s"removing temporary RocksDB file: ${tmpFile.toPath}")
         deleteDirectoryRecursively(tmpFile.toPath)
 
