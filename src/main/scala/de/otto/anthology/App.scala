@@ -126,9 +126,7 @@ object App extends OxApp, LazyLogging:
                 ExitCode.Failure(1)
 
     private def acquireRocksDbStateStore(dbConfig: RocksDBConfig, dbPath: String): RocksDBStateStore =
-        logger.info("Acquiring RocksDBStateStore...")
         RocksDBStateStore(dbConfig, dbPath)
 
     private def releaseRocksDbStateStore(db: RocksDBStateStore): Unit =
-        logger.info("Releasing RocksDBStateStore...")
-        db.close()
+        db.shutdown()

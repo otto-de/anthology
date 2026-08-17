@@ -1,5 +1,6 @@
 package de.otto.anthology.statestore
 
+import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStore.BatchOperation
 import org.rocksdb.BlockBasedTableConfig
@@ -19,10 +20,11 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import scala.collection.mutable.ListBuffer
 
 /** StateStore implementation, backed by [[https://github.com/facebook/rocksdb RocksDB]].
   */
-class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
+class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore, LazyLogging:
 
     /** As it is known that executing native code can still lead to thread pinning, we are offloading it to a separate
       * thread pool.
@@ -33,17 +35,22 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
     private def runBlocking[T](body: => T): T =
         computeIntensive(RocksDBStateStore.threadPool)(body)
 
+    private val shutdownSequence: ListBuffer[AutoCloseable] = ListBuffer.empty
+
     private val db: RocksDB =
+        logger.info("Initializing RocksDB...")
         RocksDB.loadLibrary()
         val opts = configure()
         Files.createDirectories(Paths.get(path))
         runBlocking:
-            RocksDB.open(opts, path)
+            val rocksDb = RocksDB.open(opts, path)
+            shutdownSequence += rocksDb
+            rocksDb
 
     private def configure(): Options =
 
         val options: Options = new Options()
-        options.close()
+        shutdownSequence += options
 
         val tableOptions: BlockBasedTableConfig =
             Option(options.tableFormatConfig())
@@ -59,9 +66,11 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
             .setBestEffortsRecovery(config.bestEffortsRecovery)
 
         if config.cacheSizeMb > 0L then
+            logger.info("Initializing RocksDB cache...")
             // Setup cache
             val cacheSize = config.cacheSizeMb * SizeUnit.MB
-            val cache = LRUCache(cacheSize)
+            val cache = new LRUCache(cacheSize)
+            shutdownSequence += cache
 
             // Setup block cache
             tableOptions.setNoBlockCache(false)
@@ -73,15 +82,18 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
             // Setup write buffer
             val writeBufferSize = config.writeBufferSizeMb * SizeUnit.MB
             val writeBufferManager = new WriteBufferManager(writeBufferSize, cache)
+            shutdownSequence += writeBufferManager
             options.setWriteBufferManager(writeBufferManager)
         else
+            logger.info("Initializing RocksDB without cache...")
             tableOptions.setNoBlockCache(true)
             tableOptions.setCacheIndexAndFilterBlocks(false)
             tableOptions.setCacheIndexAndFilterBlocksWithHighPriority(false)
             tableOptions.setPinTopLevelIndexAndFilter(false)
 
         // Setup bloom filter
-        val bloomFilter = BloomFilter()
+        val bloomFilter = new BloomFilter()
+        shutdownSequence += bloomFilter
         tableOptions.setFilterPolicy(bloomFilter)
         tableOptions.setOptimizeFiltersForMemory(true)
 
@@ -91,6 +103,7 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
         options.setTableFormatConfig(tableOptions)
 
         options
+    end configure
 
     override def get(key: String): Option[Array[Byte]] =
         runBlocking:
@@ -122,9 +135,12 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
                         writeOptions.close()
                 finally batch.close()
 
-    def close(): Unit =
+    def shutdown(): Unit =
+        logger.info("Shutting down RocksDB...")
         runBlocking:
-            db.close()
+            shutdownSequence.reverse.foreach: c =>
+                logger.info(s"Closing ${c.getClass().getName()}...")
+                c.close()
 
 object RocksDBStateStore:
 
