@@ -22,7 +22,6 @@ import de.otto.anthology.transformation.CodomainTransformationStage.transformCod
 import de.otto.anthology.transformation.DomainTransformationStage.transformDomainMessageIds
 import de.otto.anthology.transformation.DomainTransformationStage.transformDomainMessages
 import ox.Ox
-import ox.channels.BufferCapacity
 
 object AppWorkflow:
 
@@ -51,22 +50,15 @@ object AppWorkflow:
             .filterDomainMessages(channelConfigs, parallelism)
             .transformDomainMessageIds(channelConfigs)
             .transformDomainMessages(channelConfigs, parallelism)
-            .buffer()
             .persistDomainMessages(stateStore)
-            .buffer()
             .linkDomainMessages(relationConfigs, stateStore)
-            .buffer()
             .triggerAffectedCodomainMessages(relationConfigs, stateStore, parallelism)
             .deduplicateCodomainMessages(codomainConfig.deduplication)
             .composeCodomainMessages(stateStore)
-            .buffer()
             .inlineDomainMessages(relationConfigs, stateStore, parallelism)
-            .buffer()
             .filterCodomainMessages(codomainConfig.filtering, parallelism)
             .transformCodomainMessages(codomainConfig.transformation, parallelism)
-            .buffer()
             .persistCodomainMessages(stateStore, parallelism)
-            .buffer()
             .propagateHeaders(codomainConfig.headerPropagationConfigs)
             .emitCodomainMessages(
                 KafkaSinkSettings(
