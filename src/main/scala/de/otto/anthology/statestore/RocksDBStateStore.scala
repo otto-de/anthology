@@ -24,10 +24,11 @@ import java.util.concurrent.Executors
   */
 class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
 
-    /** As it is known that executing native code can still lead to thread pinning, we are, to be on the safe side,
-      * offloading it to a separate thread pool for the time being.
+    /** As it is known that executing native code can still lead to thread pinning, we are offloading it to a separate
+      * thread pool.
       *
-      * Source: [[https://rockthejvm.com/articles/the-ultimate-guide-to-java-virtual-threads#pinned-virtual-threads]]
+      * Sources: [[https://rockthejvm.com/articles/the-ultimate-guide-to-java-virtual-threads#pinned-virtual-threads]],
+      * [[https://stevenpg.com/posts/virtual-thread-pinning-2026-jep-491/]]
       */
     private def runBlocking[T](body: => T): T =
         computeIntensive(RocksDBStateStore.threadPool)(body)
@@ -42,6 +43,7 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
     private def configure(): Options =
 
         val options: Options = new Options()
+        options.close()
 
         val tableOptions: BlockBasedTableConfig =
             Option(options.tableFormatConfig())
@@ -125,4 +127,11 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore:
             db.close()
 
 object RocksDBStateStore:
+
+    /** To execute the native blocking code, we follow the thread model from cats-effect and run it on an unbounded,
+      * cached pool.
+      *
+      * @see
+      *   [[https://github.com/typelevel/cats-effect/blob/series/3.x/docs/thread-model.md#thread-blocking]]
+      */
     private[RocksDBStateStore] val threadPool: ExecutorService = Executors.newCachedThreadPool()
