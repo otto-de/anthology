@@ -57,8 +57,10 @@ object App extends OxApp, LazyLogging:
                     // Setup infra...
                     val cliConfig = CliConf(args)
 
+                    val cpuCount: Int = Runtime.getRuntime.availableProcessors()
+
                     val config: AnthologyConfig = AnthologyConfigFactory(cliConfig.anthologyConfigFile.toOption)
-                    logger.info(s"Starting ${config.name}...")
+                    logger.info(s"Starting ${config.name} with $cpuCount CPUs...")
 
                     val additionalKafkaProps: Map[ClusterName, Map[String, String]] =
                         AdditionalKafkaPropertiesLoader(cliConfig.anthologyAdditionalKafkaProperties.toOption)
@@ -102,7 +104,7 @@ object App extends OxApp, LazyLogging:
                     logger.info("Kafka consumers initialized successfully")
 
                     // ...and run application
-                    logger.info(s"Starting processing with ${config.parallelism}x parallelism...")
+                    logger.info("Starting processing...")
                     def startHttpServer(): Unit = Server().start()
                     def startAppWorkflow(): Unit =
                         AppWorkflow.run(
@@ -112,7 +114,7 @@ object App extends OxApp, LazyLogging:
                             store,
                             clusterSettings,
                             kafkaConsumers,
-                            config.parallelism,
+                            Parallelism(cpuCount),
                             config.domain.logThroughput
                         )
                     par(startHttpServer(), startAppWorkflow()).discard
