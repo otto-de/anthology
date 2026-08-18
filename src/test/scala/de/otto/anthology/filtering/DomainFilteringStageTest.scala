@@ -45,6 +45,7 @@ class DomainFilteringStageTest extends AnyFlatSpec, Matchers, Diagrams:
                             MessageFormatConfig(
                                 aggregateXA,
                                 None,
+                                None,
                                 Some(DomainFilteringConfig(Seq(JsonPath.compile("$[?(@.status > 2)]")))),
                                 None,
                                 None,
@@ -58,6 +59,7 @@ class DomainFilteringStageTest extends AnyFlatSpec, Matchers, Diagrams:
                         Seq(
                             MessageFormatConfig(
                                 aggregateYB,
+                                None,
                                 None,
                                 None,
                                 None,
@@ -118,6 +120,7 @@ class DomainFilteringStageTest extends AnyFlatSpec, Matchers, Diagrams:
                         Seq(
                             MessageFormatConfig(
                                 aggregateXA,
+                                None,
                                 None,
                                 Some(
                                     DomainFilteringConfig(
