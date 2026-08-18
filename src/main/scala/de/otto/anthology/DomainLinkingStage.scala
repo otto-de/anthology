@@ -257,6 +257,7 @@ object DomainLinkingStage extends LazyLogging:
         stateStore.writeBatch(batch)
 
     private case class StateStoreCache(getFromDb: String => Option[Array[Byte]]) extends StateStore:
+        private val cacheMapInit = new scala.collection.mutable.HashMap[String, Option[Array[Byte]]]
         private val cacheMap = new scala.collection.mutable.HashMap[String, Option[Array[Byte]]]
         def get(key: String): Option[Array[Byte]] = cacheMap.getOrElseUpdate(key, getFromDb(key))
         def put(key: String, value: Array[Byte]): Unit = cacheMap.put(key, Some(value))
