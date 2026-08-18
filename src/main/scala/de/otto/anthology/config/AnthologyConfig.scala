@@ -1,7 +1,6 @@
 package de.otto.anthology.config
 
 import com.typesafe.scalalogging.LazyLogging
-import de.otto.anthology.Parallelism
 import de.otto.anthology.statestore.RocksDBConfig
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
@@ -37,8 +36,7 @@ case class AnthologyConfig(
     domain: DomainConfig,
     codomain: CodomainConfig,
     kafkaClusters: Seq[KafkaClusterConfig],
-    rocksDB: RocksDBConfig = RocksDBConfig(),
-    parallelism: Parallelism = Parallelism(1)
+    rocksDB: RocksDBConfig = RocksDBConfig()
 )
 
 object AnthologyConfig:
