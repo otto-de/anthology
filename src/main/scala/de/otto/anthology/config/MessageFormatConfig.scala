@@ -12,6 +12,7 @@ import pureconfig.ConfigReader
 case class MessageFormatConfig(
     name: MessageFormatName,
     recognitionPath: Option[JsonPath],
+    idExtractionPath: Option[JsonPath],
     filtering: Option[DomainFilteringConfig],
     idTransformation: Option[DomainMessageIdTransformationConfig],
     transformation: Option[DomainMessageTransformationConfig],

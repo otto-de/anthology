@@ -44,6 +44,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                                 None,
                                 None,
                                 None,
+                                None,
                                 None
                             )
                         )
@@ -84,6 +85,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                                 aggregateXA,
                                 None,
                                 None,
+                                None,
                                 Some(DomainMessageIdTransformationConfig("ABC-([0-9a-zA-Z-]+)".r)),
                                 None,
                                 None
@@ -96,6 +98,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                         Seq(
                             MessageFormatConfig(
                                 aggregateYB,
+                                None,
                                 None,
                                 None,
                                 None,
@@ -145,6 +148,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                                 aggregateXA,
                                 None,
                                 None,
+                                None,
                                 Some(DomainMessageIdTransformationConfig("ABC-([0-9a-zA-Z-]+)".r)),
                                 None,
                                 None
@@ -157,6 +161,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                         Seq(
                             MessageFormatConfig(
                                 aggregateYB,
+                                None,
                                 None,
                                 None,
                                 Some(DomainMessageIdTransformationConfig("[a-z]*([0-9]+)".r)),
@@ -221,6 +226,7 @@ class DomainTransformationStageTest extends AnyFlatSpec, Matchers, Diagrams:
                         Seq(
                             MessageFormatConfig(
                                 aggregateXA,
+                                None,
                                 None,
                                 None,
                                 None,
