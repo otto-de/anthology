@@ -17,13 +17,16 @@ object DomainSources:
         consumers: ConsumerMap,
         logThroughput: Option[Boolean]
     )(using Ox): Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
-        configs.channels
-            .map: config =>
-                // for now we go with consumer name == domain name
-                val consumerName = ConsumerName(config.name.toString)
-                val src = DomainSource(
-                    config,
-                    KafkaSourceSettings(config.kafka, consumerName, consumers(consumerName))
-                )
-                if logThroughput.getOrElse(false) then src.count(s"domain source ${config.name.toString}") else src
-            .mergeFair()
+        val logThroughputActive: Boolean = logThroughput.getOrElse(false)
+        val srcMerged: Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
+            configs.channels
+                .map: config =>
+                    // for now we go with consumer name == domain name
+                    val consumerName = ConsumerName(config.name.toString)
+                    val src = DomainSource(
+                        config,
+                        KafkaSourceSettings(config.kafka, consumerName, consumers(consumerName))
+                    )
+                    if logThroughputActive then src.count(s"domain source ${config.name.toString}") else src
+                .mergeFair()
+        if logThroughputActive then srcMerged.count("domain sources total") else srcMerged
