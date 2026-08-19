@@ -65,6 +65,7 @@ object AppWorkflow:
                     codomainConfig.kafka,
                     clusterSettings(codomainConfig.kafka.cluster),
                     kafkaConsumers,
-                    codomainConfig.logSentMessages
+                    codomainConfig.logSentMessages,
+                    codomainConfig.logThroughput
                 )
             )
