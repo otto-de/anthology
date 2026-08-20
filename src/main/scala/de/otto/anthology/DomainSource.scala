@@ -11,6 +11,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.config.ChannelConfig
 import de.otto.anthology.config.MessageFormatConfig
 import de.otto.anthology.kafka.Passthrough
+import ox.computeIntensive
 import ox.flow.Flow
 
 import java.util.Objects
@@ -71,10 +72,11 @@ object DomainSource extends LazyLogging:
             case Some(extPath) =>
                 messageOpt match
                     case Some(message) =>
-                        Option(jsonPathContext.parse(message.toJson).read[ValueNode](extPath))
-                            .map(v => if v.canConvertToLong then v.longValue else v.textValue)
-                            .map(_.toString)
-                            .map(MessageId(_))
+                        computeIntensive:
+                            Option(jsonPathContext.parse(message.toJson).read[ValueNode](extPath))
+                                .map(v => if v.canConvertToLong then v.longValue else v.textValue)
+                                .map(_.toString)
+                                .map(MessageId(_))
                     case None =>
                         None
             case None =>

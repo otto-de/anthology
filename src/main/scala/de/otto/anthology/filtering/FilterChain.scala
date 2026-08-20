@@ -6,10 +6,12 @@ import com.jayway.jsonpath.JsonPath
 import com.jayway.jsonpath.Option as JsonPathOption
 import com.jayway.jsonpath.spi.json.JacksonJsonNodeJsonProvider
 import de.otto.anthology.Message
+import ox.computeIntensive
 
 case class FilterChain(paths: Seq[JsonPath]):
     def apply(messageOpt: Option[Message]): Option[Message] =
-        paths.foldLeft(messageOpt)(applyFilter)
+        computeIntensive:
+            paths.foldLeft(messageOpt)(applyFilter)
 
     private def applyFilter(messageOpt: Option[Message], filter: JsonPath): Option[Message] =
         messageOpt match
