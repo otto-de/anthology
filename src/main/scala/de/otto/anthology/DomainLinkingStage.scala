@@ -13,6 +13,7 @@ import de.otto.anthology.Message
 import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.SimplePerformanceMeasureStage.measure
 import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
@@ -22,6 +23,7 @@ import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.flow.Flow
 
+import java.time.Instant
 import java.util.Arrays
 import scala.collection.MapView
 import scala.collection.mutable.HashMap as MutableHashMap
@@ -32,15 +34,17 @@ object DomainLinkingStage extends LazyLogging:
     extension (in: Flow[(Option[QualifiedMessageId], Passthrough)])
         def linkDomainMessages(
             config: RelationConfigs,
-            stateStore: StateStore
+            stateStore: StateStore,
+            logThroughput: Option[Boolean] = None
         ): Flow[(Option[QualifiedMessageId], Passthrough)] =
             in
                 .buffer()
                 .map:
                     case (None, pass) =>
-                        (None, pass)
+                        (Instant.now(), (None, pass))
 
                     case (Some(qmid), pass) =>
+                        val startingTime = Instant.now()
                         try
                             val cache = StateStoreCache(stateStore.get)
 
@@ -84,7 +88,7 @@ object DomainLinkingStage extends LazyLogging:
                                     cache.removeStringsFromSet(backLinkKey, backLinkValues)
 
                                     flushCache(cache.viewChanged, stateStore)
-                                    (Some(qmid), pass)
+                                    (startingTime, (Some(qmid), pass))
 
                                 case Some(message) =>
                                     val parsedDoc: DocumentContext = jsonPathContext.parse(message.toJson)
@@ -222,7 +226,7 @@ object DomainLinkingStage extends LazyLogging:
                                         cache.removeStringFromSet(_linkKey, qmid.toString)
 
                                     flushCache(cache.viewChanged, stateStore)
-                                    (Some(qmid), pass)
+                                    (startingTime, (Some(qmid), pass))
 
                         catch
                             case e: RocksDBException =>
@@ -231,7 +235,8 @@ object DomainLinkingStage extends LazyLogging:
                                 logger.error(
                                     s"Error processing record (qualifiedId=$qmid, recordKey=${pass.record.key}, recordValue=${pass.record.value}): ${ex.stackTraceAsString}"
                                 )
-                                (None, pass)
+                                (startingTime, (None, pass))
+            .measure("DomainLinking", logThroughput)
 
     private val jsonPathContext: ParseContext =
         JsonPath.using(

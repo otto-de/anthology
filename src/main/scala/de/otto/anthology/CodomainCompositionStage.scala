@@ -8,6 +8,7 @@ import de.otto.anthology.JsonSupport.mapper
 import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.SimplePerformanceMeasureStage.measure
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -15,13 +16,18 @@ import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.flow.Flow
 
+import java.time.Instant
 import scala.util.control.NonFatal
 
 object CodomainCompositionStage extends LazyLogging:
 
     extension (in: Flow[(Seq[(QualifiedMessageId, Seq[MessageId])], Seq[Passthrough])])
-        def composeCodomainMessages(stateStore: StateStore): Flow[(Seq[MessageId], Seq[Passthrough])] =
+        def composeCodomainMessages(
+            stateStore: StateStore,
+            logThroughput: Option[Boolean] = None
+        ): Flow[(Seq[MessageId], Seq[Passthrough])] =
             in.map: (payloads, passthroughs) =>
+                val startingTime = Instant.now()
                 val payloadsOut: Seq[MessageId] =
                     payloads.flatMap: (qmid, codomainMessageIds) =>
                         codomainMessageIds.flatMap: codomainMessageId =>
@@ -43,7 +49,8 @@ object CodomainCompositionStage extends LazyLogging:
                                         s"Error processing domain message ($qmid) and codomain message ($codomainMessageId): ${ex.stackTraceAsString}"
                                     )
                                     None
-                (payloadsOut.distinct, passthroughs)
+                (startingTime, (payloadsOut.distinct, passthroughs))
+            .measure("CodomainComposition", logThroughput)
 
     private def compose(
         currentDomainMessageId: QualifiedMessageId,

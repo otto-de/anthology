@@ -10,6 +10,7 @@ import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.SimplePerformanceMeasureStage.measure
 import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
@@ -18,6 +19,7 @@ import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.flow.Flow
 
+import java.time.Instant
 import scala.util.control.NonFatal
 
 /** Create codomain as nested structure.
@@ -43,9 +45,11 @@ object CodomainInliningStage extends LazyLogging:
         def inlineDomainMessages(
             config: RelationConfigs,
             stateStore: StateStore,
-            parallelism: Parallelism = Parallelism(1)
+            parallelism: Parallelism = Parallelism(1),
+            logThroughput: Option[Boolean] = None
         ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
             in.mapPar(parallelism.toInt): (codomainMessageIds, passthroughs) =>
+                val startingTime = Instant.now()
                 val results: Seq[(MessageId, Option[Message])] =
                     codomainMessageIds.flatMap: codomainMessageId =>
                         try
@@ -76,7 +80,8 @@ object CodomainInliningStage extends LazyLogging:
                                     s"Error processing codomain message ($codomainMessageId): ${ex.stackTraceAsString}"
                                 )
                                 None
-                (results, passthroughs)
+                (startingTime, (results, passthroughs))
+            .measure("CodomainInlining", logThroughput)
 
     private def doInline(
         currentDomainMessageId: QualifiedMessageId,

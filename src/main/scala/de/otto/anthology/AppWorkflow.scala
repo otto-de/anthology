@@ -47,25 +47,25 @@ object AppWorkflow:
         logDomainThroughput: Option[Boolean]
     )(using Ox): Unit =
         DomainSources(channelConfigs, kafkaConsumers, logDomainThroughput)
-            .filterDomainMessages(channelConfigs, parallelism)
-            .transformDomainMessageIds(channelConfigs)
-            .transformDomainMessages(channelConfigs, parallelism)
-            .persistDomainMessages(stateStore)
-            .linkDomainMessages(relationConfigs, stateStore)
-            .triggerAffectedCodomainMessages(relationConfigs, stateStore, parallelism)
-            .deduplicateCodomainMessages(codomainConfig.deduplication)
-            .composeCodomainMessages(stateStore)
-            .inlineDomainMessages(relationConfigs, stateStore, parallelism)
-            .filterCodomainMessages(codomainConfig.filtering, parallelism)
-            .transformCodomainMessages(codomainConfig.transformation, parallelism)
-            .persistCodomainMessages(stateStore, parallelism)
-            .propagateHeaders(codomainConfig.headerPropagationConfigs)
+            .filterDomainMessages(channelConfigs, parallelism, logDomainThroughput)
+            .transformDomainMessageIds(channelConfigs, logDomainThroughput)
+            .transformDomainMessages(channelConfigs, parallelism, logDomainThroughput)
+            .persistDomainMessages(stateStore, logDomainThroughput)
+            .linkDomainMessages(relationConfigs, stateStore, logDomainThroughput)
+            .triggerAffectedCodomainMessages(relationConfigs, stateStore, parallelism, logDomainThroughput)
+            .deduplicateCodomainMessages(codomainConfig.deduplication, logDomainThroughput)
+            .composeCodomainMessages(stateStore, logDomainThroughput)
+            .inlineDomainMessages(relationConfigs, stateStore, parallelism, logDomainThroughput)
+            .filterCodomainMessages(codomainConfig.filtering, parallelism, logDomainThroughput)
+            .transformCodomainMessages(codomainConfig.transformation, parallelism, logDomainThroughput)
+            .persistCodomainMessages(stateStore, parallelism, logDomainThroughput)
+            .propagateHeaders(codomainConfig.headerPropagationConfigs, logDomainThroughput)
             .emitCodomainMessages(
                 KafkaSinkSettings(
                     codomainConfig.kafka,
                     clusterSettings(codomainConfig.kafka.cluster),
                     kafkaConsumers,
                     codomainConfig.logSentMessages,
-                    codomainConfig.logThroughput
+                    logDomainThroughput
                 )
             )
