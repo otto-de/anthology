@@ -8,7 +8,7 @@ import de.otto.anthology.Message
 import de.otto.anthology.MessageFormatName
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimplePerformanceMeasureStage.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measure
 import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
@@ -18,7 +18,6 @@ import pureconfig.ConfigReader
 
 import java.io.FileInputStream
 import java.io.InputStream
-import java.time.Instant
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
@@ -32,38 +31,35 @@ object DomainTransformationStage extends LazyLogging:
           * [[anthology.transformation.MessageIdTransformer]] for details.
           */
         def transformDomainMessageIds(
-            configs: ChannelConfigs,
-            logThroughput: Option[Boolean] = None
+            configs: ChannelConfigs
         ): Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
             in.map:
-                case (None, pass) =>
-                    (Instant.now(), (None, pass))
-                case (Some(qmid, domainMessageOpt), pass) =>
-                    val startingTime = Instant.now()
-                    try
-                        val configOpt = configs.messageFormatByQualifiedMessageId(qmid).idTransformation
-                        val transformedDomainMessageId =
-                            configOpt match
-                                case Some(config) =>
-                                    MessageIdTransformer(qmid.id, config.pattern)
-                                case None =>
-                                    qmid.id
-                        (startingTime, (Some(qmid.copy(id = transformedDomainMessageId), domainMessageOpt), pass))
-                    catch
-                        case NonFatal(ex) =>
-                            logger.error(
-                                s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
-                            )
-                            (startingTime, (None, pass))
-            .measure("DomainTransformationIds", logThroughput)
+                measure("DomainTransformationIds"):
+                    case (None, pass) =>
+                        (None, pass)
+                    case (Some(qmid, domainMessageOpt), pass) =>
+                        try
+                            val configOpt = configs.messageFormatByQualifiedMessageId(qmid).idTransformation
+                            val transformedDomainMessageId =
+                                configOpt match
+                                    case Some(config) =>
+                                        MessageIdTransformer(qmid.id, config.pattern)
+                                    case None =>
+                                        qmid.id
+                            (Some(qmid.copy(id = transformedDomainMessageId), domainMessageOpt), pass)
+                        catch
+                            case NonFatal(ex) =>
+                                logger.error(
+                                    s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
+                                )
+                                (None, pass)
 
         /** Transforms incoming domain messages based on a [[https://jolt-community.github.io/jolt-community Jolt]]
           * spec, configured per channel.
           */
         def transformDomainMessages(
             configs: ChannelConfigs,
-            parallelism: Parallelism = Parallelism(1),
-            logThroughput: Option[Boolean] = None
+            parallelism: Parallelism = Parallelism(1)
         ): Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
             val specs: Map[(ChannelName, MessageFormatName), Chainr] =
                 configs.messageFormatsByName.flatMap: (chanName2msgName, msgConfig) =>
@@ -77,23 +73,22 @@ object DomainTransformationStage extends LazyLogging:
                         (chanName2msgName, chain)
 
             in.mapPar(parallelism.toInt):
-                case (None, pass) =>
-                    (Instant.now(), (None, pass))
-                case (Some(qmid, domainMessageOpt), pass) =>
-                    val startingTime = Instant.now()
-                    domainMessageOpt match
-                        case Some(domainMessage) =>
-                            val specOpt = specs.get((qmid.channelName, qmid.messageName))
-                            val transformedDomainMessage =
-                                specOpt match
-                                    case Some(spec) =>
-                                        MessageTransformer(domainMessage, spec)
-                                    case None =>
-                                        domainMessage
-                            (startingTime, (Some(qmid, Some(transformedDomainMessage)), pass))
-                        case None =>
-                            (startingTime, (Some(qmid, domainMessageOpt), pass))
-            .measure("DomainTransformation", logThroughput)
+                measure("DomainTransformationMsgs"):
+                    case (None, pass) =>
+                        (None, pass)
+                    case (Some(qmid, domainMessageOpt), pass) =>
+                        domainMessageOpt match
+                            case Some(domainMessage) =>
+                                val specOpt = specs.get((qmid.channelName, qmid.messageName))
+                                val transformedDomainMessage =
+                                    specOpt match
+                                        case Some(spec) =>
+                                            MessageTransformer(domainMessage, spec)
+                                        case None =>
+                                            domainMessage
+                                (Some(qmid, Some(transformedDomainMessage)), pass)
+                            case None =>
+                                (Some(qmid, domainMessageOpt), pass)
 
 case class DomainMessageIdTransformationConfig(pattern: Regex) derives ConfigReader
 

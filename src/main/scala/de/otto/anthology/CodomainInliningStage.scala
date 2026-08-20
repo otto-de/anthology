@@ -10,7 +10,7 @@ import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimplePerformanceMeasureStage.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measure
 import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
@@ -19,7 +19,6 @@ import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.flow.Flow
 
-import java.time.Instant
 import scala.util.control.NonFatal
 
 /** Create codomain as nested structure.
@@ -45,43 +44,41 @@ object CodomainInliningStage extends LazyLogging:
         def inlineDomainMessages(
             config: RelationConfigs,
             stateStore: StateStore,
-            parallelism: Parallelism = Parallelism(1),
-            logThroughput: Option[Boolean] = None
+            parallelism: Parallelism = Parallelism(1)
         ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
-            in.mapPar(parallelism.toInt): (codomainMessageIds, passthroughs) =>
-                val startingTime = Instant.now()
-                val results: Seq[(MessageId, Option[Message])] =
-                    codomainMessageIds.flatMap: codomainMessageId =>
-                        try
-                            val codomainKeyStaged = s"${StateStoreSection.STA}/${codomainMessageId.toString}"
-                            stateStore
-                                .getJson(codomainKeyStaged)
-                                .map(_.asInstanceOf[ObjectNode])
-                                .map: codomainMessageStaged =>
-                                    val codomainMessageTemp: ObjectNode = mapper.createObjectNode()
-                                    doInline(
-                                        QualifiedMessageId(config.root._1, config.root._2, codomainMessageId),
-                                        codomainMessageTemp,
-                                        codomainMessageStaged,
-                                        stateStore
+            in.mapPar(parallelism.toInt):
+                measure("CodomainInlining"): (codomainMessageIds, passthroughs) =>
+                    val results: Seq[(MessageId, Option[Message])] =
+                        codomainMessageIds.flatMap: codomainMessageId =>
+                            try
+                                val codomainKeyStaged = s"${StateStoreSection.STA}/${codomainMessageId.toString}"
+                                stateStore
+                                    .getJson(codomainKeyStaged)
+                                    .map(_.asInstanceOf[ObjectNode])
+                                    .map: codomainMessageStaged =>
+                                        val codomainMessageTemp: ObjectNode = mapper.createObjectNode()
+                                        doInline(
+                                            QualifiedMessageId(config.root._1, config.root._2, codomainMessageId),
+                                            codomainMessageTemp,
+                                            codomainMessageStaged,
+                                            stateStore
+                                        )
+                                        val rootKey: String = s"${config.root._1}/${config.root._2}"
+                                        val codomainMessageOpt: Option[Message] =
+                                            Option(codomainMessageTemp.get(rootKey))
+                                                .map(_.asInstanceOf[ArrayNode])
+                                                .map(_.get(0))
+                                                .map(Message(_))
+                                        (codomainMessageId, codomainMessageOpt)
+                            catch
+                                case e: RocksDBException =>
+                                    throw e
+                                case NonFatal(ex) =>
+                                    logger.error(
+                                        s"Error processing codomain message ($codomainMessageId): ${ex.stackTraceAsString}"
                                     )
-                                    val rootKey: String = s"${config.root._1}/${config.root._2}"
-                                    val codomainMessageOpt: Option[Message] =
-                                        Option(codomainMessageTemp.get(rootKey))
-                                            .map(_.asInstanceOf[ArrayNode])
-                                            .map(_.get(0))
-                                            .map(Message(_))
-                                    (codomainMessageId, codomainMessageOpt)
-                        catch
-                            case e: RocksDBException =>
-                                throw e
-                            case NonFatal(ex) =>
-                                logger.error(
-                                    s"Error processing codomain message ($codomainMessageId): ${ex.stackTraceAsString}"
-                                )
-                                None
-                (startingTime, (results, passthroughs))
-            .measure("CodomainInlining", logThroughput)
+                                    None
+                    (results, passthroughs)
 
     private def doInline(
         currentDomainMessageId: QualifiedMessageId,

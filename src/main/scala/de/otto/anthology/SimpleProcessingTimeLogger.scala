@@ -12,7 +12,7 @@ object SimpleProcessingTimeLogger extends LazyLogging:
 
     private val measurements: TrieMap[String, Measurement] = TrieMap.empty
 
-    def measure[T](f: => T)(label: String): T =
+    def measure[T](label: String)(f: => T): T =
         val start = Instant.now()
         val result = f
         val duration = Duration.between(start, Instant.now()).toMillis

@@ -3,7 +3,7 @@ package de.otto.anthology
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.Message
 import de.otto.anthology.MessageId
-import de.otto.anthology.SimplePerformanceMeasureStage.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measure
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -12,7 +12,6 @@ import org.rocksdb.RocksDBException
 import ox.flow.Flow
 import ox.mapPar
 
-import java.time.Instant
 import scala.util.control.NonFatal
 
 object CodomainPersistenceStage extends LazyLogging:
@@ -24,27 +23,25 @@ object CodomainPersistenceStage extends LazyLogging:
           */
         def persistCodomainMessages(
             stateStore: StateStore,
-            parallelism: Parallelism = Parallelism(1),
-            logThroughput: Option[Boolean] = None
+            parallelism: Parallelism = Parallelism(1)
         ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
-            in.map: (payloads, passthroughs) =>
-                val startingTime = Instant.now()
-                val payloadsOut = payloads.mapPar(parallelism.toInt): msgId2msg =>
-                    try
-                        val messageKey: String = s"${StateStoreSection.COD}/${msgId2msg._1}"
-                        msgId2msg._2 match
-                            case Some(message) =>
-                                stateStore.putJson(messageKey, message.toJson)
-                            case None =>
-                                stateStore.delete(messageKey)
-                        msgId2msg
-                    catch
-                        case e: RocksDBException =>
-                            throw e
-                        case NonFatal(ex) =>
-                            logger.error(
-                                s"Error persisting codomain message (${msgId2msg._1}, ${msgId2msg._2}): ${ex.stackTraceAsString}"
-                            )
-                            (msgId2msg._1, None)
-                (startingTime, (payloadsOut, passthroughs))
-            .measure("CodomainPersistence", logThroughput)
+            in.map:
+                measure("CodomainPersistence"): (payloads, passthroughs) =>
+                    val payloadsOut = payloads.mapPar(parallelism.toInt): msgId2msg =>
+                        try
+                            val messageKey: String = s"${StateStoreSection.COD}/${msgId2msg._1}"
+                            msgId2msg._2 match
+                                case Some(message) =>
+                                    stateStore.putJson(messageKey, message.toJson)
+                                case None =>
+                                    stateStore.delete(messageKey)
+                            msgId2msg
+                        catch
+                            case e: RocksDBException =>
+                                throw e
+                            case NonFatal(ex) =>
+                                logger.error(
+                                    s"Error persisting codomain message (${msgId2msg._1}, ${msgId2msg._2}): ${ex.stackTraceAsString}"
+                                )
+                                (msgId2msg._1, None)
+                    (payloadsOut, passthroughs)
