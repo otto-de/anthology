@@ -6,6 +6,7 @@ import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.SimplePerformanceMeasureStage.measure
 import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
@@ -14,6 +15,7 @@ import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.flow.Flow
 
+import java.time.Instant
 import scala.util.control.NonFatal
 
 object CodomainTriggeringStage extends LazyLogging:
@@ -27,15 +29,17 @@ object CodomainTriggeringStage extends LazyLogging:
         def triggerAffectedCodomainMessages(
             config: RelationConfigs,
             stateStore: StateStore,
-            parallelism: Parallelism = Parallelism(1)
+            parallelism: Parallelism = Parallelism(1),
+            logThroughput: Option[Boolean] = None
         ): Flow[(Option[(QualifiedMessageId, Set[MessageId])], Passthrough)] =
             in.mapPar(parallelism.toInt):
                 case (None, pass) =>
-                    (None, pass)
+                    (Instant.now(), (None, pass))
                 case (Some(qmid), pass) =>
+                    val startingTime = Instant.now()
                     try
                         val rootIds = identifyAffected(qmid, config, stateStore)
-                        (Some(qmid, rootIds), pass)
+                        (startingTime, (Some(qmid, rootIds), pass))
                     catch
                         case e: RocksDBException =>
                             throw e
@@ -43,7 +47,8 @@ object CodomainTriggeringStage extends LazyLogging:
                             logger.error(
                                 s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
                             )
-                            (None, pass)
+                            (startingTime, (None, pass))
+            .measure("CodomainTriggering", logThroughput)
 
     private def identifyAffected(
         currentDomainMessageId: QualifiedMessageId,

@@ -3,6 +3,7 @@ package de.otto.anthology
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.BroadcastStage.broadcast
 import de.otto.anthology.SimpleLoggingCounterStage.count
+import de.otto.anthology.SimplePerformanceMeasureStage.measure
 import de.otto.anthology.config.AdditionalKafkaProperty
 import de.otto.anthology.config.KafkaClusterSettings
 import de.otto.anthology.config.asMap
@@ -24,6 +25,7 @@ import ox.kafka.KafkaDrain
 import ox.kafka.ProducerSettings
 import pureconfig.ConfigReader
 
+import java.time.Instant
 import java.util.Collections
 
 object KafkaSink extends LazyLogging:
@@ -78,6 +80,7 @@ object KafkaSink extends LazyLogging:
                 // setup sink which sends incoming data to both publisher channel and committer channel
                 in
                     .map: (payload, offsets) =>
+                        val startingTime = Instant.now()
                         val producerRecords =
                             payload.map: p =>
                                 val recKey = p._1
@@ -90,7 +93,8 @@ object KafkaSink extends LazyLogging:
                                     recValue,
                                     recHeaders
                                 ) // scalafix:ok
-                        (producerRecords, offsets)
+                        (startingTime, (producerRecords, offsets))
+                    .measure("Sink", settings.logThroughput)
                     .tap: (producerRecords, _) =>
                         if settings.logSentMessages.getOrElse(false) then
                             producerRecords.foreach: record =>

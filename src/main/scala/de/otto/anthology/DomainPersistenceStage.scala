@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.Message
 import de.otto.anthology.MessageId
 import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.SimplePerformanceMeasureStage.measure
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -11,6 +12,7 @@ import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.flow.Flow
 
+import java.time.Instant
 import scala.util.control.NonFatal
 
 object DomainPersistenceStage extends LazyLogging:
@@ -20,11 +22,15 @@ object DomainPersistenceStage extends LazyLogging:
         /** Persists incoming domain messages in the [[anthology.statestore.StateStore]]. A missing messages will be
           * treated as a deletion and removed from StateStore.
           */
-        def persistDomainMessages(stateStore: StateStore): Flow[(Option[QualifiedMessageId], Passthrough)] =
+        def persistDomainMessages(
+            stateStore: StateStore,
+            logThroughput: Option[Boolean] = None
+        ): Flow[(Option[QualifiedMessageId], Passthrough)] =
             in.map:
                 case (None, pass) =>
-                    (None, pass)
+                    (Instant.now(), (None, pass))
                 case (Some(qmid, messageOpt), pass) =>
+                    val startingTime = Instant.now()
                     try
                         validateMessageId(qmid.id)
                         val messageKey: String = s"${StateStoreSection.DOM}/$qmid"
@@ -33,7 +39,7 @@ object DomainPersistenceStage extends LazyLogging:
                                 stateStore.putJson(messageKey, message.toJson)
                             case None =>
                                 stateStore.delete(messageKey)
-                        (Some(qmid), pass)
+                        (startingTime, (Some(qmid), pass))
                     catch
                         case e: RocksDBException =>
                             throw e
@@ -41,7 +47,8 @@ object DomainPersistenceStage extends LazyLogging:
                             logger.error(
                                 s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
                             )
-                            (None, pass)
+                            (startingTime, (None, pass))
+            .measure("DomainPersistence", logThroughput)
 
     private def validateMessageId(aid: MessageId): Unit =
         if aid.toString.contains(StateStore.ELEMENT_SEPARATOR) then

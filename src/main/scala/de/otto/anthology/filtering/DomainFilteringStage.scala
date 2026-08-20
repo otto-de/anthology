@@ -7,6 +7,7 @@ import de.otto.anthology.Message
 import de.otto.anthology.MessageFormatName
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.SimplePerformanceMeasureStage.measure
 import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.config.jsonPathConfigReader
 import de.otto.anthology.kafka.Passthrough
@@ -14,6 +15,7 @@ import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import ox.flow.Flow
 import pureconfig.ConfigReader
 
+import java.time.Instant
 import scala.util.control.NonFatal
 
 object DomainFilteringStage extends LazyLogging:
@@ -21,7 +23,8 @@ object DomainFilteringStage extends LazyLogging:
     extension (in: Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)])
         def filterDomainMessages(
             configs: ChannelConfigs,
-            parallelism: Parallelism = Parallelism(1)
+            parallelism: Parallelism = Parallelism(1),
+            logThroughput: Option[Boolean] = None
         ): Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
             val chains: Map[(ChannelName, MessageFormatName), FilterChain] =
                 configs.messageFormatsByName.flatMap: (chanName2msgName, msgConfig) =>
@@ -29,9 +32,10 @@ object DomainFilteringStage extends LazyLogging:
 
             in.mapPar(parallelism.toInt):
                 case (None, pass) =>
-                    (None, pass)
+                    (Instant.now(), (None, pass))
 
                 case (Some(qmid, messageOpt), pass) =>
+                    val startingTime = Instant.now()
                     try
                         val chainOpt = chains.get((qmid.channelName, qmid.messageName))
                         val filteredDomainMessage =
@@ -40,12 +44,14 @@ object DomainFilteringStage extends LazyLogging:
                                     chain(messageOpt)
                                 case None =>
                                     messageOpt
-                        (Some(qmid, filteredDomainMessage), pass)
+                        (startingTime, (Some(qmid, filteredDomainMessage), pass))
                     catch
                         case NonFatal(ex) =>
                             logger.error(
                                 s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
                             )
-                            (None, pass)
+                            (startingTime, (None, pass))
+            .measure("DomainFiltering", logThroughput)
+
 
 case class DomainFilteringConfig(filterPaths: Seq[JsonPath]) derives ConfigReader
