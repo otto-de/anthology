@@ -64,7 +64,6 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore,
             .setErrorIfExists(false) // If the database already exists, don't raise an error.
             .setCompressionType(CompressionType.LZ4_COMPRESSION)
             .setBestEffortsRecovery(config.bestEffortsRecovery)
-            .setMaxBackgroundJobs(Runtime.getRuntime().availableProcessors())
 
         if config.cacheSizeMb > 0L then
             logger.info("Initializing RocksDB cache...")
