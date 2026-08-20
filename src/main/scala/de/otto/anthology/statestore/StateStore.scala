@@ -20,6 +20,7 @@ trait StateStore:
 
     def putJson(key: String, value: JsonNode): Unit = put(key, mapper.writeValueAsBytes(value))
 
+    // Default implementation, does no batching at all
     def writeBatch(operations: Seq[StateStore.BatchOperation]): Unit =
         operations.foreach:
             case StateStore.BatchOperation.Put(key, value) => put(key, value)

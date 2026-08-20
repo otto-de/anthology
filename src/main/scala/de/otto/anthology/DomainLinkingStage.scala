@@ -22,7 +22,9 @@ import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.flow.Flow
 
+import java.util.Arrays
 import scala.collection.MapView
+import scala.collection.mutable.HashMap as MutableHashMap
 import scala.util.control.NonFatal
 
 object DomainLinkingStage extends LazyLogging:
@@ -81,7 +83,7 @@ object DomainLinkingStage extends LazyLogging:
                                     // Delete backlinks starting here
                                     cache.removeStringsFromSet(backLinkKey, backLinkValues)
 
-                                    flushCache(cache.view, stateStore)
+                                    flushCache(cache.viewChanged, stateStore)
                                     (Some(qmid), pass)
 
                                 case Some(message) =>
@@ -219,7 +221,7 @@ object DomainLinkingStage extends LazyLogging:
                                         val _linkKey = s"${StateStoreSection.LNK}/$value"
                                         cache.removeStringFromSet(_linkKey, qmid.toString)
 
-                                    flushCache(cache.view, stateStore)
+                                    flushCache(cache.viewChanged, stateStore)
                                     (Some(qmid), pass)
 
                         catch
@@ -246,10 +248,6 @@ object DomainLinkingStage extends LazyLogging:
     ): Unit =
         val batch: Seq[BatchOperation] =
             cacheView
-                .filterKeys: k =>
-                    k.startsWith(StateStoreSection.LNK.toString) || k.startsWith(
-                        StateStoreSection.BLK.toString
-                    )
                 .map:
                     case (key, Some(v)) => BatchOperation.Put(key, v)
                     case (key, None) => BatchOperation.Delete(key)
@@ -257,10 +255,53 @@ object DomainLinkingStage extends LazyLogging:
         stateStore.writeBatch(batch)
 
     private case class StateStoreCache(getFromDb: String => Option[Array[Byte]]) extends StateStore:
-        private val cacheMap = new scala.collection.mutable.HashMap[String, Option[Array[Byte]]]
-        def get(key: String): Option[Array[Byte]] = cacheMap.getOrElseUpdate(key, getFromDb(key))
-        def put(key: String, value: Array[Byte]): Unit = cacheMap.put(key, Some(value))
-        def delete(key: String): Unit = cacheMap.put(key, None)
-        def view: MapView[String, Option[Array[Byte]]] = cacheMap.view
+
+        private val cacheMapInitL: MutableHashMap[String, Option[Array[Byte]]] = MutableHashMap.empty
+
+        private val cacheMapL: MutableHashMap[String, Option[Array[Byte]]] = MutableHashMap.empty
+
+        private val cacheMap: MutableHashMap[String, Option[Array[Byte]]] = MutableHashMap.empty
+
+        private def loadL(key: String): Option[Array[Byte]] =
+            val value = getFromDb(key)
+            cacheMapInitL.put(key, value)
+            value
+
+        def get(key: String): Option[Array[Byte]] =
+            if key.startsWith(StateStoreSection.LNK.toString) || key.startsWith(
+                    StateStoreSection.BLK.toString
+                )
+            then cacheMapL.getOrElseUpdate(key, loadL(key))
+            else cacheMap.getOrElseUpdate(key, getFromDb(key))
+
+        def put(key: String, value: Array[Byte]): Unit =
+            assert(
+                key.startsWith(StateStoreSection.LNK.toString) || key.startsWith(
+                    StateStoreSection.BLK.toString
+                )
+            )
+            cacheMapL.put(key, Some(value))
+
+        def delete(key: String): Unit =
+            assert(
+                key.startsWith(StateStoreSection.LNK.toString) || key.startsWith(
+                    StateStoreSection.BLK.toString
+                )
+            )
+            cacheMapL.put(key, None)
+
+        def viewChanged: MapView[String, Option[Array[Byte]]] =
+            cacheMapL.view.filter: k2v =>
+                val (k, vOpt) = k2v
+                val vInitOpt = cacheMapInitL.get(k).flatten
+                (vInitOpt, vOpt) match
+                    case (None, Some(_)) | (Some(_), None) =>
+                        true
+                    case (Some(vInit), Some(v)) if !Arrays.equals(vInit, v) =>
+                        true
+                    case _ =>
+                        false
+
+    end StateStoreCache
 
 end DomainLinkingStage
