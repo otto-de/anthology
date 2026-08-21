@@ -3,7 +3,7 @@ package de.otto.anthology
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.BroadcastStage.broadcast
 import de.otto.anthology.SimpleLoggingCounterStage.count
-import de.otto.anthology.SimplePerformanceMeasureStage.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measure
 import de.otto.anthology.config.AdditionalKafkaProperty
 import de.otto.anthology.config.KafkaClusterSettings
 import de.otto.anthology.config.asMap
@@ -25,7 +25,6 @@ import ox.kafka.KafkaDrain
 import ox.kafka.ProducerSettings
 import pureconfig.ConfigReader
 
-import java.time.Instant
 import java.util.Collections
 
 object KafkaSink extends LazyLogging:
@@ -80,7 +79,6 @@ object KafkaSink extends LazyLogging:
                 // setup sink which sends incoming data to both publisher channel and committer channel
                 in
                     .map: (payload, offsets) =>
-                        val startingTime = Instant.now()
                         val producerRecords =
                             payload.map: p =>
                                 val recKey = p._1
@@ -93,8 +91,7 @@ object KafkaSink extends LazyLogging:
                                     recValue,
                                     recHeaders
                                 ) // scalafix:ok
-                        (startingTime, (producerRecords, offsets))
-                    .measure("Sink", settings.logThroughput)
+                        (producerRecords, offsets)
                     .tap: (producerRecords, _) =>
                         if settings.logSentMessages.getOrElse(false) then
                             producerRecords.foreach: record =>
@@ -102,9 +99,10 @@ object KafkaSink extends LazyLogging:
                                     s"Sending codomain message id=${record.key}, msg=${record.value}"
                                 )
                     .logThroughput(settings)
-                    .map: (producerRecords, offsets) =>
-                        producerRecords.foreach(publishChannel.send)
-                        offsets.foreach(committerChannel.send)
+                    .map:
+                        measure("SinkPublish"): (producerRecords, offsets) =>
+                            producerRecords.foreach(publishChannel.send)
+                            offsets.foreach(committerChannel.send)
                     .mapStateful(0): (cnt, _) =>
                         if cnt % 1000 == 0 then
                             logger.info("Published and committed 1000 batches of codomain messages to Kafka")

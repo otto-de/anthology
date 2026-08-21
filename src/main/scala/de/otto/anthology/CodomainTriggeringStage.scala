@@ -6,7 +6,7 @@ import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimplePerformanceMeasureStage.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measure
 import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
@@ -15,7 +15,6 @@ import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.flow.Flow
 
-import java.time.Instant
 import scala.util.control.NonFatal
 
 object CodomainTriggeringStage extends LazyLogging:
@@ -29,26 +28,24 @@ object CodomainTriggeringStage extends LazyLogging:
         def triggerAffectedCodomainMessages(
             config: RelationConfigs,
             stateStore: StateStore,
-            parallelism: Parallelism = Parallelism(1),
-            logThroughput: Option[Boolean] = None
+            parallelism: Parallelism = Parallelism(1)
         ): Flow[(Option[(QualifiedMessageId, Set[MessageId])], Passthrough)] =
             in.mapPar(parallelism.toInt):
-                case (None, pass) =>
-                    (Instant.now(), (None, pass))
-                case (Some(qmid), pass) =>
-                    val startingTime = Instant.now()
-                    try
-                        val rootIds = identifyAffected(qmid, config, stateStore)
-                        (startingTime, (Some(qmid, rootIds), pass))
-                    catch
-                        case e: RocksDBException =>
-                            throw e
-                        case NonFatal(ex) =>
-                            logger.error(
-                                s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
-                            )
-                            (startingTime, (None, pass))
-            .measure("CodomainTriggering", logThroughput)
+                measure("CodomainTriggering"):
+                    case (None, pass) =>
+                        (None, pass)
+                    case (Some(qmid), pass) =>
+                        try
+                            val rootIds = identifyAffected(qmid, config, stateStore)
+                            (Some(qmid, rootIds), pass)
+                        catch
+                            case e: RocksDBException =>
+                                throw e
+                            case NonFatal(ex) =>
+                                logger.error(
+                                    s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
+                                )
+                                (None, pass)
 
     private def identifyAffected(
         currentDomainMessageId: QualifiedMessageId,

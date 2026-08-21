@@ -6,7 +6,7 @@ import de.otto.anthology.JsonSupport.mapper
 import de.otto.anthology.Message
 import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
-import de.otto.anthology.SimplePerformanceMeasureStage.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measure
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import io.joltcommunity.jolt.Chainr
@@ -15,7 +15,6 @@ import pureconfig.ConfigReader
 
 import java.io.FileInputStream
 import java.io.InputStream
-import java.time.Instant
 import scala.util.control.NonFatal
 
 object CodomainTransformationStage extends LazyLogging:
@@ -29,8 +28,7 @@ object CodomainTransformationStage extends LazyLogging:
           */
         def transformCodomainMessages(
             configOpt: Option[CodomainTransformationConfig],
-            parallelism: Parallelism = Parallelism(1),
-            logThroughput: Option[Boolean] = None
+            parallelism: Parallelism = Parallelism(1)
         ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
             val specOpt: Option[Chainr] =
                 configOpt.map: config =>
@@ -40,25 +38,24 @@ object CodomainTransformationStage extends LazyLogging:
                     val specJsonValue: java.util.List[Object] = mapper.readValue(specInputStream, specTypeRef)
                     Chainr.fromSpec(specJsonValue)
 
-            in.mapPar(parallelism.toInt): (payloads, passthroughs) =>
-                val startingTime = Instant.now()
-                val payloadsOut: Seq[(MessageId, Option[Message])] =
-                    payloads.map: (codomainMessageId, codomainMessageOpt) =>
-                        try
-                            val transformedCodomainMessageOpt: Option[Message] =
-                                (codomainMessageOpt, specOpt) match
-                                    case (Some(codomainMessage), Some(spec)) =>
-                                        Some(MessageTransformer(codomainMessage, spec))
-                                    case _ =>
-                                        codomainMessageOpt
-                            (codomainMessageId, transformedCodomainMessageOpt)
-                        catch
-                            case NonFatal(ex) =>
-                                logger.error(
-                                    s"Error transforming ($codomainMessageId, $codomainMessageOpt): ${ex.stackTraceAsString}"
-                                )
-                                (codomainMessageId, None)
-                (startingTime, (payloadsOut, passthroughs))
-            .measure("CodomainTransformation", logThroughput)
+            in.mapPar(parallelism.toInt):
+                measure("CodomainTransformation"): (payloads, passthroughs) =>
+                    val payloadsOut: Seq[(MessageId, Option[Message])] =
+                        payloads.map: (codomainMessageId, codomainMessageOpt) =>
+                            try
+                                val transformedCodomainMessageOpt: Option[Message] =
+                                    (codomainMessageOpt, specOpt) match
+                                        case (Some(codomainMessage), Some(spec)) =>
+                                            Some(MessageTransformer(codomainMessage, spec))
+                                        case _ =>
+                                            codomainMessageOpt
+                                (codomainMessageId, transformedCodomainMessageOpt)
+                            catch
+                                case NonFatal(ex) =>
+                                    logger.error(
+                                        s"Error transforming ($codomainMessageId, $codomainMessageOpt): ${ex.stackTraceAsString}"
+                                    )
+                                    (codomainMessageId, None)
+                    (payloadsOut, passthroughs)
 
 case class CodomainTransformationConfig(specFile: String) derives ConfigReader
