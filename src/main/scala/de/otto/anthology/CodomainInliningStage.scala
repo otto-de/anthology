@@ -10,7 +10,7 @@ import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimpleProcessingTimeLogger.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
@@ -47,7 +47,7 @@ object CodomainInliningStage extends LazyLogging:
             parallelism: Parallelism = Parallelism(1)
         ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
             in.mapPar(parallelism.toInt):
-                measure("CodomainInlining"): (codomainMessageIds, passthroughs) =>
+                measureMap("CodomainInlining"): (codomainMessageIds, passthroughs) =>
                     val results: Seq[(MessageId, Option[Message])] =
                         codomainMessageIds.flatMap: codomainMessageId =>
                             try

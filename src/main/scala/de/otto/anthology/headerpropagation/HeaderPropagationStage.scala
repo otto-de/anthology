@@ -3,7 +3,7 @@ package de.otto.anthology.headerpropagation
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.Message
 import de.otto.anthology.MessageId
-import de.otto.anthology.SimpleProcessingTimeLogger.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.apache.kafka.common.header.Headers
@@ -25,7 +25,7 @@ object HeaderPropagationStage extends LazyLogging:
             configsOpt: Option[HeaderPropagationConfigs]
         ): Flow[(Seq[(MessageId, Option[Message], Option[Headers])], Seq[Passthrough])] =
             in.map:
-                measure("HeaderPropagation"): (payloads, passthroughs) =>
+                measureMap("HeaderPropagation"): (payloads, passthroughs) =>
                     val result =
                         configsOpt match
                             case Some(configs) =>

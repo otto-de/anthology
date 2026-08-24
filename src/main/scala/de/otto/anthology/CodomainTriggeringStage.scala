@@ -6,7 +6,7 @@ import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimpleProcessingTimeLogger.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
@@ -31,7 +31,7 @@ object CodomainTriggeringStage extends LazyLogging:
             parallelism: Parallelism = Parallelism(1)
         ): Flow[(Option[(QualifiedMessageId, Set[MessageId])], Passthrough)] =
             in.mapPar(parallelism.toInt):
-                measure("CodomainTriggering"):
+                measureMap("CodomainTriggering"):
                     case (None, pass) =>
                         (None, pass)
                     case (Some(qmid), pass) =>

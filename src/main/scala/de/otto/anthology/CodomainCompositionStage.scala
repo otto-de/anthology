@@ -8,7 +8,7 @@ import de.otto.anthology.JsonSupport.mapper
 import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimpleProcessingTimeLogger.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -25,7 +25,7 @@ object CodomainCompositionStage extends LazyLogging:
             stateStore: StateStore
         ): Flow[(Seq[MessageId], Seq[Passthrough])] =
             in.map:
-                measure("CodomainComposition"): (payloads, passthroughs) =>
+                measureMap("CodomainComposition"): (payloads, passthroughs) =>
                     val payloadsOut: Seq[MessageId] =
                         payloads.flatMap: (qmid, codomainMessageIds) =>
                             codomainMessageIds.flatMap: codomainMessageId =>

@@ -13,7 +13,7 @@ import de.otto.anthology.Message
 import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimpleProcessingTimeLogger.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
@@ -38,7 +38,7 @@ object DomainLinkingStage extends LazyLogging:
             in
                 .buffer()
                 .map:
-                    measure("DomainLinking"):
+                    measureMap("DomainLinking"):
                         case (None, pass) =>
                             (None, pass)
 

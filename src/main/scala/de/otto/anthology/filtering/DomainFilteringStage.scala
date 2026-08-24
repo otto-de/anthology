@@ -7,7 +7,7 @@ import de.otto.anthology.Message
 import de.otto.anthology.MessageFormatName
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimpleProcessingTimeLogger.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.config.jsonPathConfigReader
 import de.otto.anthology.kafka.Passthrough
@@ -29,7 +29,7 @@ object DomainFilteringStage extends LazyLogging:
                     msgConfig.filtering.map(fc => (chanName2msgName, FilterChain(fc.filterPaths)))
 
             in.mapPar(parallelism.toInt):
-                measure("DomainFiltering"):
+                measureMap("DomainFiltering"):
                     case (None, pass) =>
                         (None, pass)
 

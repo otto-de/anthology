@@ -3,7 +3,7 @@ package de.otto.anthology
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.Message
 import de.otto.anthology.MessageId
-import de.otto.anthology.SimpleProcessingTimeLogger.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -26,7 +26,7 @@ object CodomainPersistenceStage extends LazyLogging:
             parallelism: Parallelism = Parallelism(1)
         ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
             in.map:
-                measure("CodomainPersistence"): (payloads, passthroughs) =>
+                measureMap("CodomainPersistence"): (payloads, passthroughs) =>
                     val payloadsOut = payloads.mapPar(parallelism.toInt): msgId2msg =>
                         try
                             val messageKey: String = s"${StateStoreSection.COD}/${msgId2msg._1}"
