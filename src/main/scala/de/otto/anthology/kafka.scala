@@ -10,6 +10,7 @@ import ox.kafka.KafkaConsumerWrapper
 import ox.kafka.ReceivedMessage
 import pureconfig.ConfigReader
 
+import java.time.Instant
 import java.util.Comparator
 import java.util.Objects
 
@@ -52,7 +53,11 @@ object kafka:
             if Objects.isNull(data) || data.isEmpty then None
             else Some(Message(mapper.readTree(data)))
 
-    case class Passthrough(record: ReceivedMessage[MessageId, Option[Message]], consumerName: ConsumerName)
+    case class Passthrough(
+        record: ReceivedMessage[MessageId, Option[Message]],
+        consumerName: ConsumerName,
+        startTime: Instant = Instant.now
+    )
     object Passthrough:
         given passthroughComparator: Comparator[Passthrough] =
             new Comparator:
