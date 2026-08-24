@@ -25,9 +25,14 @@ import ox.kafka.KafkaDrain
 import ox.kafka.ProducerSettings
 import pureconfig.ConfigReader
 
+import java.time.Duration
+import java.time.Instant
 import java.util.Collections
+import scala.util.Random
 
 object KafkaSink extends LazyLogging:
+
+    private val rand = Random()
 
     extension (in: Flow[(Seq[(MessageId, Option[Message], Option[Headers])], Seq[Passthrough])])
         def emitCodomainMessages(settings: KafkaSinkSettings): Unit =
@@ -99,6 +104,11 @@ object KafkaSink extends LazyLogging:
                                     s"Sending codomain message id=${record.key}, msg=${record.value}"
                                 )
                     .logThroughput(settings)
+                    .tap: (_, p) =>
+                        if rand.nextInt(1000) == 0 then
+                            p.headOption.foreach: pass =>
+                                val dur = Duration.between(Instant.now, pass.startTime).toMillis()
+                                logger.info(s"Sample e2e processing time: $dur milliseconds")
                     .map:
                         measureMap("SinkPublish"): (producerRecords, offsets) =>
                             producerRecords.foreach(publishChannel.send)
