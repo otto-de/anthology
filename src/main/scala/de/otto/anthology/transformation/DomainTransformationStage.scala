@@ -8,7 +8,7 @@ import de.otto.anthology.Message
 import de.otto.anthology.MessageFormatName
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimpleProcessingTimeLogger.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
@@ -34,7 +34,7 @@ object DomainTransformationStage extends LazyLogging:
             configs: ChannelConfigs
         ): Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
             in.map:
-                measure("DomainTransformationIds"):
+                measureMap("DomainTransformationIds"):
                     case (None, pass) =>
                         (None, pass)
                     case (Some(qmid, domainMessageOpt), pass) =>
@@ -73,7 +73,7 @@ object DomainTransformationStage extends LazyLogging:
                         (chanName2msgName, chain)
 
             in.mapPar(parallelism.toInt):
-                measure("DomainTransformationMsgs"):
+                measureMap("DomainTransformationMsgs"):
                     case (None, pass) =>
                         (None, pass)
                     case (Some(qmid, domainMessageOpt), pass) =>

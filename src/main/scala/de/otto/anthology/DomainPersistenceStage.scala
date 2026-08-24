@@ -4,7 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.Message
 import de.otto.anthology.MessageId
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimpleProcessingTimeLogger.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -25,7 +25,7 @@ object DomainPersistenceStage extends LazyLogging:
             stateStore: StateStore
         ): Flow[(Option[QualifiedMessageId], Passthrough)] =
             in.map:
-                measure("DomainPersistence"):
+                measureMap("DomainPersistence"):
                     case (None, pass) =>
                         (None, pass)
                     case (Some(qmid, messageOpt), pass) =>

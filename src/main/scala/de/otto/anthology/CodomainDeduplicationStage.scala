@@ -2,7 +2,7 @@ package de.otto.anthology
 
 import de.otto.anthology.MessageId
 import de.otto.anthology.QualifiedMessageId
-import de.otto.anthology.SimpleProcessingTimeLogger.measure
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.kafka.Passthrough
 import ox.computeIntensive
 import ox.flow.Flow
@@ -23,13 +23,13 @@ object CodomainDeduplicationStage:
             val config = configOpt.getOrElse(defaultConfig)
             if config.batchSize == 1 then
                 in.map:
-                    measure("CodomainDeduplication"): (payload, passthrough) =>
+                    measureMap("CodomainDeduplication"): (payload, passthrough) =>
                         (payload.toSeq.map(e => (e._1, e._2.toSeq)), Seq(passthrough))
             else
                 in
                     .groupedWithin(config.batchSize, config.batchingDuration)
                     .map:
-                        measure("CodomainDeduplication"): batches =>
+                        measureMap("CodomainDeduplication"): batches =>
                             val result =
                                 computeIntensive:
                                     val passthroughs: ListBuffer[Passthrough] = ListBuffer.empty
