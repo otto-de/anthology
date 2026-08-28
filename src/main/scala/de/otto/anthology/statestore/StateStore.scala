@@ -46,6 +46,7 @@ trait StateStore:
         putStringSet(key, newSet)
 
     def addStringsToSet(key: String, elems: Set[String]): Unit =
+        // TODO only execute if elems is not empty
         val oldSet: Set[String] = getStringSet(key)
         val newSet = oldSet ++ elems
         putStringSet(key, newSet)
@@ -56,6 +57,7 @@ trait StateStore:
         putStringSet(key, newSet)
 
     def removeStringsFromSet(key: String, elems: Set[String]): Unit =
+        // TODO only execute if elems is not empty
         val oldSet: Set[String] = getStringSet(key)
         val newSet = oldSet -- elems
         putStringSet(key, newSet)

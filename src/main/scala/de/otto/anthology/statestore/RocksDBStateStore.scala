@@ -120,15 +120,15 @@ class RocksDBStateStore(config: RocksDBConfig, path: String) extends StateStore,
     override def writeBatch(ops: Seq[BatchOperation]): Unit =
         if ops.nonEmpty then
             runBlocking:
-                val batch = WriteBatch()
+                val batch = new WriteBatch()
                 try
                     ops.foreach:
                         case BatchOperation.Put(key, value) =>
                             batch.put(key.getBytes(StandardCharsets.UTF_8), value)
                         case BatchOperation.Delete(key) =>
                             batch.delete(key.getBytes(StandardCharsets.UTF_8))
-                    val writeOptions = WriteOptions()
-                    // TODO: which options should be configured
+                    val writeOptions = new WriteOptions()
+                    // TODO: which options should be configured?
                     try
                         db.write(writeOptions, batch)
                     finally

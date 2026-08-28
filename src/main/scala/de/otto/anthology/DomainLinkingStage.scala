@@ -105,6 +105,7 @@ object DomainLinkingStage extends LazyLogging:
                                                         MessageFormatName(splittedEntry(1))
                                                     ) -> MessageId(splittedEntry(2))
                                                 .toMap
+                                            // TODO linkValuesOld map's value should be QualifiedMessageId
 
                                         val (
                                             linkRemovalOpts: Set[Option[String]],
@@ -131,6 +132,8 @@ object DomainLinkingStage extends LazyLogging:
                                                             .map(toMessageId =>
                                                                 s"${mtoConfig.relTo._1}/${mtoConfig.relTo._2}/$toMessageId"
                                                             )
+                                                    // TODO toMessageKeyOldOpt & toMessageKeyNewOpt should be Option[QualifiedMessageId]
+
                                                     (toMessageKeyOldOpt, toMessageKeyNewOpt) match
                                                         case (None, Some(msgN)) =>
                                                             // add msgN
@@ -173,8 +176,11 @@ object DomainLinkingStage extends LazyLogging:
                                                     (
                                                         ChannelName(splittedEntry(0)),
                                                         MessageFormatName(splittedEntry(1))
-                                                    ) -> MessageId(splittedEntry(2))
+                                                    ) -> MessageId(
+                                                        splittedEntry(2)
+                                                    )
                                                 .toMap
+                                        // TODO backLinkValuesOld map's value should be QualifiedMessageId
 
                                         val (
                                             backLinkRemovalOpts: Set[Option[String]],
@@ -201,6 +207,8 @@ object DomainLinkingStage extends LazyLogging:
                                                             .map(fromMessageId =>
                                                                 s"${otmConfig.relFrom._1}/${otmConfig.relFrom._2}/$fromMessageId"
                                                             )
+                                                    // TODO fromMessageKeyOldOpt & fromMessageKeyNewOpt should be Option[QualifiedMessageId]
+
                                                     (fromMessageKeyOldOpt, fromMessageKeyNewOpt) match
                                                         case (None, Some(msgN)) =>
                                                             // add msgN
@@ -223,9 +231,12 @@ object DomainLinkingStage extends LazyLogging:
                                         cache.addStringsToSet(backLinkKey, backLinkAdditions)
 
                                         // (b.2) links
+                                        // TODO run additions and removals in parallel
+                                        // TODO run foreach in parallel
                                         backLinkAdditions.foreach: value =>
                                             val _linkKey = s"${StateStoreSection.LNK}/$value"
                                             cache.addStringToSet(_linkKey, qmid.toString)
+                                        // TODO run foreach in parallel
                                         backLinkRemovals.foreach: value =>
                                             val _linkKey = s"${StateStoreSection.LNK}/$value"
                                             cache.removeStringFromSet(_linkKey, qmid.toString)
