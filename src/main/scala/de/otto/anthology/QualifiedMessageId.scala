@@ -4,3 +4,9 @@ final case class QualifiedMessageId(channelName: ChannelName, messageName: Messa
     lazy val qualifier: (ChannelName, MessageFormatName) = (channelName, messageName)
     lazy val qualifierString: String = s"$channelName/$messageName"
     override def toString(): String = s"$qualifierString/$id"
+
+object QualifiedMessageId:
+    def apply(qmidStr: String): QualifiedMessageId =
+        val splitted: Array[String] = qmidStr.split("/")
+        assert(splitted.size == 3, "Invalid format")
+        QualifiedMessageId(ChannelName(splitted(0)), MessageFormatName(splitted(1)), MessageId(splitted(2)))
