@@ -93,34 +93,26 @@ object DomainLinkingStage extends LazyLogging:
 
                                         // (a) compute and update many-to-one relations starting here
                                         // (a.1) links
-                                        val linkKey = s"${StateStoreSection.LNK}/$qmid"
+                                        val linkKey: String = s"${StateStoreSection.LNK}/$qmid"
 
-                                        val linkValuesOld: Map[(ChannelName, MessageFormatName), MessageId] =
+                                        val linkValuesOld: Map[(ChannelName, MessageFormatName), QualifiedMessageId] =
                                             cache
                                                 .getStringSet(linkKey)
-                                                .map: entry =>
-                                                    val splittedEntry = entry.split("/")
-                                                    (
-                                                        ChannelName(splittedEntry(0)),
-                                                        MessageFormatName(splittedEntry(1))
-                                                    ) -> MessageId(splittedEntry(2))
+                                                .map: entryStr =>
+                                                    val entryQmid = QualifiedMessageId(entryStr)
+                                                    entryQmid.qualifier -> entryQmid
                                                 .toMap
-                                            // TODO linkValuesOld map's value should be QualifiedMessageId
 
                                         val (
-                                            linkRemovalOpts: Set[Option[String]],
-                                            linkAdditionOpts: Set[Option[String]]
+                                            linkRemovalOpts: Set[Option[QualifiedMessageId]],
+                                            linkAdditionOpts: Set[Option[QualifiedMessageId]]
                                         ) =
                                             config.manyToOneRelationsStartingFrom
                                                 .getOrElse(qmid.qualifier, Set.empty)
                                                 .map: mtoConfig =>
-                                                    val toMessageKeyOldOpt =
-                                                        linkValuesOld
-                                                            .get(mtoConfig.relTo)
-                                                            .map(toMessageId =>
-                                                                s"${mtoConfig.relTo._1}/${mtoConfig.relTo._2}/$toMessageId"
-                                                            )
-                                                    val toMessageKeyNewOpt =
+                                                    val toMessageKeyOldOpt: Option[QualifiedMessageId] =
+                                                        linkValuesOld.get(mtoConfig.relTo)
+                                                    val toMessageKeyNewOpt: Option[QualifiedMessageId] =
                                                         Option(
                                                             parsedDoc.read[ValueNode](mtoConfig.refFromManyToOnePath)
                                                         )
@@ -130,9 +122,8 @@ object DomainLinkingStage extends LazyLogging:
                                                             .map(_.toString)
                                                             .map(MessageId(_))
                                                             .map(toMessageId =>
-                                                                s"${mtoConfig.relTo._1}/${mtoConfig.relTo._2}/$toMessageId"
+                                                                QualifiedMessageId(mtoConfig.relTo, toMessageId)
                                                             )
-                                                    // TODO toMessageKeyOldOpt & toMessageKeyNewOpt should be Option[QualifiedMessageId]
 
                                                     (toMessageKeyOldOpt, toMessageKeyNewOpt) match
                                                         case (None, Some(msgN)) =>
@@ -149,12 +140,15 @@ object DomainLinkingStage extends LazyLogging:
                                                             (None, None)
                                                 .unzip
 
-                                        val (linkRemovals: Set[String], linkAdditions: Set[String]) =
+                                        val (
+                                            linkRemovals: Set[QualifiedMessageId],
+                                            linkAdditions: Set[QualifiedMessageId]
+                                        ) =
                                             (linkRemovalOpts.flatten, linkAdditionOpts.flatten)
 
-                                        cache.removeStringsFromSet(linkKey, linkRemovals)
+                                        cache.removeStringsFromSet(linkKey, linkRemovals.map(_.toString))
 
-                                        cache.addStringsToSet(linkKey, linkAdditions)
+                                        cache.addStringsToSet(linkKey, linkAdditions.map(_.toString))
 
                                         // (a.2) back links
 
@@ -165,15 +159,14 @@ object DomainLinkingStage extends LazyLogging:
                                                 .getOrElse(qmid.qualifier, Set.empty)
                                                 .filter(_.omitTriggerCodomain)
                                                 .map(_.relTo)
-                                                .map(rel => s"${rel._1}/${rel._2}")
 
                                         linkAdditions
-                                            .filterNot(value => omitBacklinkComputation.exists(value.startsWith))
+                                            .filterNot(value => omitBacklinkComputation.contains(value.qualifier))
                                             .foreach: value =>
                                                 val _backLinkKey = s"${StateStoreSection.BLK}/$value"
                                                 cache.addStringToSet(_backLinkKey, qmid.toString)
                                         linkRemovals
-                                            .filterNot(value => omitBacklinkComputation.exists(value.startsWith))
+                                            .filterNot(value => omitBacklinkComputation.contains(value.qualifier))
                                             .foreach: value =>
                                                 val _backLinkKey = s"${StateStoreSection.BLK}/$value"
                                                 cache.removeStringFromSet(_backLinkKey, qmid.toString)
@@ -182,34 +175,25 @@ object DomainLinkingStage extends LazyLogging:
                                         // (b.1) back links
                                         val backLinkKey = s"${StateStoreSection.BLK}/$qmid"
 
-                                        val backLinkValuesOld: Map[(ChannelName, MessageFormatName), MessageId] =
+                                        val backLinkValuesOld
+                                            : Map[(ChannelName, MessageFormatName), QualifiedMessageId] =
                                             cache
                                                 .getStringSet(backLinkKey)
-                                                .map: entry =>
-                                                    val splittedEntry = entry.split("/")
-                                                    (
-                                                        ChannelName(splittedEntry(0)),
-                                                        MessageFormatName(splittedEntry(1))
-                                                    ) -> MessageId(
-                                                        splittedEntry(2)
-                                                    )
+                                                .map: entryStr =>
+                                                    val entryQmid = QualifiedMessageId(entryStr)
+                                                    entryQmid.qualifier -> entryQmid
                                                 .toMap
-                                        // TODO backLinkValuesOld map's value should be QualifiedMessageId
 
                                         val (
-                                            backLinkRemovalOpts: Set[Option[String]],
-                                            backLinkAdditionOpts: Set[Option[String]]
+                                            backLinkRemovalOpts: Set[Option[QualifiedMessageId]],
+                                            backLinkAdditionOpts: Set[Option[QualifiedMessageId]]
                                         ) =
                                             config.oneToManyRelationsLeadingTo
                                                 .getOrElse(qmid.qualifier, Set.empty)
                                                 .map: otmConfig =>
-                                                    val fromMessageKeyOldOpt =
-                                                        backLinkValuesOld
-                                                            .get(otmConfig.relFrom)
-                                                            .map(fromMessageId =>
-                                                                s"${otmConfig.relFrom._1}/${otmConfig.relFrom._2}/$fromMessageId"
-                                                            )
-                                                    val fromMessageKeyNewOpt =
+                                                    val fromMessageKeyOldOpt: Option[QualifiedMessageId] =
+                                                        backLinkValuesOld.get(otmConfig.relFrom)
+                                                    val fromMessageKeyNewOpt: Option[QualifiedMessageId] =
                                                         Option(
                                                             parsedDoc.read[ValueNode](otmConfig.refFromManyToOnePath)
                                                         )
@@ -219,9 +203,8 @@ object DomainLinkingStage extends LazyLogging:
                                                             .map(_.toString)
                                                             .map(MessageId(_))
                                                             .map(fromMessageId =>
-                                                                s"${otmConfig.relFrom._1}/${otmConfig.relFrom._2}/$fromMessageId"
+                                                                QualifiedMessageId(otmConfig.relFrom, fromMessageId)
                                                             )
-                                                    // TODO fromMessageKeyOldOpt & fromMessageKeyNewOpt should be Option[QualifiedMessageId]
 
                                                     (fromMessageKeyOldOpt, fromMessageKeyNewOpt) match
                                                         case (None, Some(msgN)) =>
@@ -238,11 +221,15 @@ object DomainLinkingStage extends LazyLogging:
                                                             (None, None)
                                                 .unzip
 
-                                        val (backLinkRemovals: Set[String], backLinkAdditions: Set[String]) =
+                                        val (
+                                            backLinkRemovals: Set[QualifiedMessageId],
+                                            backLinkAdditions: Set[QualifiedMessageId]
+                                        ) =
                                             (backLinkRemovalOpts.flatten, backLinkAdditionOpts.flatten)
 
-                                        cache.removeStringsFromSet(backLinkKey, backLinkRemovals)
-                                        cache.addStringsToSet(backLinkKey, backLinkAdditions)
+                                        cache.removeStringsFromSet(backLinkKey, backLinkRemovals.map(_.toString))
+
+                                        cache.addStringsToSet(backLinkKey, backLinkAdditions.map(_.toString))
 
                                         // (b.2) links
                                         // TODO run additions and removals in parallel
