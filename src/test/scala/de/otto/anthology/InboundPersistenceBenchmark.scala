@@ -46,12 +46,14 @@ object InboundPersistenceBenchmark extends OxApp.Simple:
                         relTo = (ChannelName("CX"), MessageFormatName("MB")),
                         refFromManyToOnePath = JsonPath.compile("$.id_b")
                     ),
-                    // The following relation cause performance issues, because the CZ/MF entities hold a very high
-                    // number of backlinks to CW/MA entities:
+                    // The following relation might cause performance issues, because the CZ/MF entities hold a very
+                    // high number of backlinks to CW/MA entities:
                     ManyToOne(
                         relFrom = (ChannelName("CW"), MessageFormatName("MA")),
                         relTo = (ChannelName("CZ"), MessageFormatName("MF")),
-                        refFromManyToOnePath = JsonPath.compile("$.id_f")
+                        refFromManyToOnePath = JsonPath.compile("$.id_f"),
+                        // omitting trigger the codomain computation solves the performance issues here:
+                        omitTriggerCodomain = true
                     ),
                     ManyToOne(
                         relFrom = (ChannelName("CX"), MessageFormatName("MB")),
