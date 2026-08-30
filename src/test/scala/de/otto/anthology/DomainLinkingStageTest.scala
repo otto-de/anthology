@@ -1,5 +1,6 @@
 package de.otto.anthology
 
+import com.jayway.jsonpath.JsonPath
 import de.otto.anthology.DomainLinkingStage.linkDomainMessages
 import de.otto.anthology.DomainPersistenceStage.persistDomainMessages
 import de.otto.anthology.JsonSupport.mapper
@@ -10,6 +11,8 @@ import de.otto.anthology.TestData.*
 import de.otto.anthology.TestUtils.InMemoryStateStore
 import de.otto.anthology.TestUtils.mockedEmptyKafkaRecord
 import de.otto.anthology.TestUtils.mockedKafkaRecord
+import de.otto.anthology.config.ManyToOne
+import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStoreSection
 import org.scalatest.diagrams.Diagrams
@@ -119,6 +122,65 @@ class DomainLinkingStageTest extends AnyFlatSpec, Matchers, Diagrams:
             stateStore.getStringSet(s"${StateStoreSection.BLK}/$categoriesChannel/$categoryMessageFormat/$categoryId")
         assert(categoriesBLK.size == 1)
         assert(categoriesBLK.contains(bookQaid.toString))
+
+    it should "compute and persist linking of one Aggregate (codomain triggering for books->categories omitted)" in:
+
+        // given
+        val stateStore = InMemoryStateStore()
+
+        val books2authors = ManyToOne(
+            relFrom = mediaChannel -> bookMessageFormat,
+            relTo = authorsChannel -> authorMessageFormat,
+            refFromManyToOnePath = JsonPath.compile("$.authorId")
+        )
+
+        val books2categories = ManyToOne(
+            relFrom = mediaChannel -> bookMessageFormat,
+            relTo = categoriesChannel -> categoryMessageFormat,
+            refFromManyToOnePath = JsonPath.compile("$.categoryId"),
+            omitTriggerCodomain = true
+        )
+
+        val categoryId = setupCategoryIdFantasy
+        val authorId = setupAuthorIdTolkien
+
+        val bookId = setupBookIdRings
+        val bookQaid = QualifiedMessageId(mediaChannel, bookMessageFormat, bookId)
+        val book = setupBookRings()
+        val bookPass = mockedKafkaRecord(bookId.toString, book.toJson)
+
+        Flow.fromValues((Some(bookQaid, Some(book)), bookPass))
+            .persistDomainMessages(stateStore)
+            .runToList()
+
+        val config = RelationConfigs(Seq(books2authors, books2categories))
+
+        // when
+        val src: Flow[(Option[(QualifiedMessageId)], Passthrough)] =
+            Flow.fromValues((Some(bookQaid), bookPass))
+
+        val out: List[(Option[(QualifiedMessageId)], Passthrough)] =
+            src.linkDomainMessages(config, stateStore).runToList()
+
+        // then
+        assert(out == List((Some(bookQaid), bookPass)))
+
+        assert(stateStore.store.size == 3)
+
+        val bookLNK = stateStore.getStringSet(s"${StateStoreSection.LNK}/$bookQaid")
+        assert(bookLNK.size == 2)
+        assert(bookLNK.contains(s"$authorsChannel/$authorMessageFormat/$authorId"))
+        assert(bookLNK.contains(s"$categoriesChannel/$categoryMessageFormat/$categoryId"))
+
+        val authorBLK =
+            stateStore.getStringSet(s"${StateStoreSection.BLK}/$authorsChannel/$authorMessageFormat/$authorId")
+        assert(authorBLK.size == 1)
+        assert(authorBLK.contains(bookQaid.toString))
+
+        // There must NOT be backlinks from categories to books
+        val categoriesBLK =
+            stateStore.getStringSet(s"${StateStoreSection.BLK}/$categoriesChannel/$categoryMessageFormat/$categoryId")
+        assert(categoriesBLK.isEmpty)
 
     it should "compute and persist linking of Aggregate deletions" in:
 

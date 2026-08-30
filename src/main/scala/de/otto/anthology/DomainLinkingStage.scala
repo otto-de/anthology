@@ -157,12 +157,26 @@ object DomainLinkingStage extends LazyLogging:
                                         cache.addStringsToSet(linkKey, linkAdditions)
 
                                         // (a.2) back links
-                                        linkAdditions.foreach: value =>
-                                            val _backLinkKey = s"${StateStoreSection.BLK}/$value"
-                                            cache.addStringToSet(_backLinkKey, qmid.toString)
-                                        linkRemovals.foreach: value =>
-                                            val _backLinkKey = s"${StateStoreSection.BLK}/$value"
-                                            cache.removeStringFromSet(_backLinkKey, qmid.toString)
+
+                                        // If triggering the computation of the codomain message is omitted,
+                                        // no backlinks should be maintained for many-to-one relations
+                                        val omitBacklinkComputation =
+                                            config.manyToOneRelationsStartingFrom
+                                                .getOrElse(qmid.qualifier, Set.empty)
+                                                .filter(_.omitTriggerCodomain)
+                                                .map(_.relTo)
+                                                .map(rel => s"${rel._1}/${rel._2}")
+
+                                        linkAdditions
+                                            .filterNot(value => omitBacklinkComputation.exists(value.startsWith))
+                                            .foreach: value =>
+                                                val _backLinkKey = s"${StateStoreSection.BLK}/$value"
+                                                cache.addStringToSet(_backLinkKey, qmid.toString)
+                                        linkRemovals
+                                            .filterNot(value => omitBacklinkComputation.exists(value.startsWith))
+                                            .foreach: value =>
+                                                val _backLinkKey = s"${StateStoreSection.BLK}/$value"
+                                                cache.removeStringFromSet(_backLinkKey, qmid.toString)
 
                                         // (b) compute and update one-to-many relations ending here
                                         // (b.1) back links

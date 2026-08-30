@@ -29,5 +29,6 @@ case class OneToMany(
 case class ManyToOne(
     relFrom: (ChannelName, MessageFormatName),
     relTo: (ChannelName, MessageFormatName),
-    refFromManyToOnePath: JsonPath
+    refFromManyToOnePath: JsonPath,
+    omitTriggerCodomain: Boolean = false
 ) extends RelationConfig
