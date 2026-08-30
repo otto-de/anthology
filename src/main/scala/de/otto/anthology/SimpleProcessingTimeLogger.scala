@@ -28,7 +28,7 @@ object SimpleProcessingTimeLogger extends LazyLogging:
                 val next = Measurement(last.totalDuration + durationMicros, last.count + 1)
                 if next.count % reportEveryNMessages == 0 then
                     val avgMicros = next.totalDuration / next.count
-                    logger.info(s"$label - average processing time: ${avgMicros}µs")
+                    logger.info(s"$label average processing time: ${avgMicros}µs")
                     reportToFile.foreach: filePath =>
                         Files.writeString(
                             filePath,

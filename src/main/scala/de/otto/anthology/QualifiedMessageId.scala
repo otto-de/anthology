@@ -10,3 +10,6 @@ object QualifiedMessageId:
         val splitted: Array[String] = qmidStr.split("/")
         assert(splitted.size == 3, "Invalid format")
         QualifiedMessageId(ChannelName(splitted(0)), MessageFormatName(splitted(1)), MessageId(splitted(2)))
+
+    def apply(qualifier: (ChannelName, MessageFormatName), id: MessageId): QualifiedMessageId =
+        QualifiedMessageId(qualifier._1, qualifier._2, id)
