@@ -2,7 +2,7 @@ package de.otto.anthology
 
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.BroadcastStage.broadcast
-import de.otto.anthology.SimpleLoggingCounterStage.count
+import de.otto.anthology.SimpleThroughputLoggingStage.logThroughput
 import de.otto.anthology.config.AdditionalKafkaProperty
 import de.otto.anthology.config.KafkaClusterSettings
 import de.otto.anthology.config.asMap
@@ -99,7 +99,7 @@ object KafkaSink extends LazyLogging:
                                 logger.info(
                                     s"Sending codomain message id=${record.key}, msg=${record.value}"
                                 )
-                    .logThroughput(settings)
+                    .logThroughput("codomain sink", settings.logThroughput)
                     .mapStateful(0): (cnt, p) =>
                         if cnt % 1000 == 0 then
                             p._2.headOption.foreach: pass =>
@@ -117,12 +117,6 @@ object KafkaSink extends LazyLogging:
 
                 (publishFork.join(), commitForkPerConsumer.join(), commitFork.join())
         end emitCodomainMessages
-
-    extension (flow: Flow[(Seq[ProducerRecord[MessageId, Message]], Seq[Passthrough])])
-        def logThroughput(settings: KafkaSinkSettings)(using
-            Ox
-        ): Flow[(Seq[ProducerRecord[MessageId, Message]], Seq[Passthrough])] =
-            if settings.logThroughput.getOrElse(false) then flow.count("codomain sink") else flow
 
 case class KafkaSinkConfig(
     cluster: ClusterName,
