@@ -1,6 +1,7 @@
 package de.otto.anthology
 
 import com.jayway.jsonpath.JsonPath
+import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.DomainLinkingStage.linkDomainMessages
 import de.otto.anthology.DomainPersistenceStage.persistDomainMessages
 import de.otto.anthology.JsonSupport.mapper
@@ -24,10 +25,10 @@ import scala.concurrent.duration.*
 import scala.util.Random
 
 /** A benchmark that simulates a complex scenario and which revealed that extremely asymmetrical relations cause
-  * performance issues. In this case, it is the CW/MA-->CZ/MF relation that leads to ever-increasing execution times in
-  * the DomainLinkingStage.
+  * performance issues. In this case, it was the CW/MA-->CZ/MF relation that lead to ever-increasing execution times in
+  * the DomainLinkingStage. It can now be circumvented by setting the 'omitTriggerCodomain' option.
   */
-object InboundPersistenceBenchmark extends OxApp.Simple:
+object InboundPersistenceBenchmark extends OxApp.Simple, LazyLogging:
 
     val rand: Random = Random()
 
@@ -74,7 +75,9 @@ object InboundPersistenceBenchmark extends OxApp.Simple:
             )
 
         val stateStore: StateStore =
-            useInScope(RocksDBStateStore(RocksDBConfig(), s"$dataDir/rocksdb"))(
+            useInScope(
+                RocksDBStateStore(RocksDBConfig(), s"$dataDir/rocksdb")
+            )(
                 _.shutdown()
             )
 
@@ -173,15 +176,30 @@ object InboundPersistenceBenchmark extends OxApp.Simple:
                     case _ =>
                         throw new IllegalStateException()
 
-        par(
-            generateData,
-            timeoutOption(30.minutes)(
-                Flow.fromSource(src)
-                    .persistDomainMessages(stateStore)
-                    .linkDomainMessages(relationConfigs, stateStore)
-                    .runDrain()
+        def executeBenchmark: Unit =
+            par(
+                generateData,
+                timeoutOption(5.minutes)(
+                    Flow.fromSource(src)
+                        .persistDomainMessages(stateStore)
+                        .linkDomainMessages(relationConfigs, stateStore)
+                        .runDrain()
+                )
             )
-        )
 
-        println("LNK/CX/MB/0 " + stateStore.getStringSet("LNK/CX/MB/0").mkString("; "))
-        println("BLK/CX/MB/0 " + stateStore.getStringSet("BLK/CX/MB/0").mkString("; "))
+        // run1 - inserts
+        logger.info("Starting run 1")
+        executeBenchmark
+        logger.info("Finished run 1")
+
+        // run2 - updates
+        logger.info("Starting run 2")
+        countCur_a = 0
+        countCur_b = 0
+        countCur_c = 0
+        countCur_d = 0
+        countCur_e = 0
+        countCur_f = 0
+
+        executeBenchmark
+        logger.info("Finished run 2")
