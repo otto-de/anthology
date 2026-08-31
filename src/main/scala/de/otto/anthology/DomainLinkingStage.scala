@@ -232,12 +232,9 @@ object DomainLinkingStage extends LazyLogging:
                                         cache.addStringsToSet(backLinkKey, backLinkAdditions.map(_.toString))
 
                                         // (b.2) links
-                                        // TODO run additions and removals in parallel
-                                        // TODO run foreach in parallel
                                         backLinkAdditions.foreach: value =>
                                             val _linkKey = s"${StateStoreSection.LNK}/$value"
                                             cache.addStringToSet(_linkKey, qmid.toString)
-                                        // TODO run foreach in parallel
                                         backLinkRemovals.foreach: value =>
                                             val _linkKey = s"${StateStoreSection.LNK}/$value"
                                             cache.removeStringFromSet(_linkKey, qmid.toString)
