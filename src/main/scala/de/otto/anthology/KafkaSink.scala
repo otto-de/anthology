@@ -3,7 +3,6 @@ package de.otto.anthology
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.BroadcastStage.broadcast
 import de.otto.anthology.SimpleLoggingCounterStage.count
-import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.config.AdditionalKafkaProperty
 import de.otto.anthology.config.KafkaClusterSettings
 import de.otto.anthology.config.asMap
@@ -28,11 +27,8 @@ import pureconfig.ConfigReader
 import java.time.Duration
 import java.time.Instant
 import java.util.Collections
-import scala.util.Random
 
 object KafkaSink extends LazyLogging:
-
-    private val rand = Random()
 
     extension (in: Flow[(Seq[(MessageId, Option[Message], Option[Headers])], Seq[Passthrough])])
         def emitCodomainMessages(settings: KafkaSinkSettings): Unit =
@@ -104,15 +100,15 @@ object KafkaSink extends LazyLogging:
                                     s"Sending codomain message id=${record.key}, msg=${record.value}"
                                 )
                     .logThroughput(settings)
-                    .tap: (_, p) =>
-                        if rand.nextInt(1000) == 0 then
-                            p.headOption.foreach: pass =>
-                                val dur = Duration.between(Instant.now, pass.startTime).toMillis()
-                                logger.info(s"Sample e2e processing time: $dur milliseconds")
-                    .map:
-                        measureMap("SinkPublish"): (producerRecords, offsets) =>
-                            producerRecords.foreach(publishChannel.send)
-                            offsets.foreach(committerChannel.send)
+                    .mapStateful(0): (cnt, p) =>
+                        if cnt % 1000 == 0 then
+                            p._2.headOption.foreach: pass =>
+                                val dur = Duration.between(pass.startTime, Instant.now).toMillis()
+                                logger.info(s"Sample e2e processing time: ${dur}ms")
+                        (cnt + 1, p)
+                    .map: (producerRecords, offsets) =>
+                        producerRecords.foreach(publishChannel.send)
+                        offsets.foreach(committerChannel.send)
                     .mapStateful(0): (cnt, _) =>
                         if cnt % 1000 == 0 then
                             logger.info("Published and committed 1000 batches of codomain messages to Kafka")
