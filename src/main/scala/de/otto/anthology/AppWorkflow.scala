@@ -58,7 +58,7 @@ object AppWorkflow:
             .inlineDomainMessages(relationConfigs, stateStore, parallelism)
             .filterCodomainMessages(codomainConfig.filtering, parallelism)
             .transformCodomainMessages(codomainConfig.transformation, parallelism)
-            .persistCodomainMessages(stateStore, parallelism)
+            .persistCodomainMessages(stateStore)
             .propagateHeaders(codomainConfig.headerPropagationConfigs)
             .emitCodomainMessages(
                 KafkaSinkSettings(

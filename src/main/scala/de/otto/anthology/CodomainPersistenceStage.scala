@@ -10,7 +10,6 @@ import de.otto.anthology.statestore.StateStoreSection
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
 import org.rocksdb.RocksDBException
 import ox.flow.Flow
-import ox.mapPar
 
 import scala.util.control.NonFatal
 
@@ -22,12 +21,11 @@ object CodomainPersistenceStage extends LazyLogging:
           * treated as a deletion and removed from StateStore.
           */
         def persistCodomainMessages(
-            stateStore: StateStore,
-            parallelism: Parallelism = Parallelism(1)
+            stateStore: StateStore
         ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
             in.map:
                 measureMap("CodomainPersistence"): (payloads, passthroughs) =>
-                    val payloadsOut = payloads.mapPar(parallelism.toInt): msgId2msg =>
+                    val payloadsOut = payloads.map: msgId2msg =>
                         try
                             val messageKey: String = s"${StateStoreSection.COD}/${msgId2msg._1}"
                             msgId2msg._2 match
