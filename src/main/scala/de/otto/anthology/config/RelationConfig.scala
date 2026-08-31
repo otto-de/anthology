@@ -6,14 +6,16 @@ import de.otto.anthology.MessageFormatName
 import de.otto.anthology.config.jsonPathConfigReader
 import pureconfig.ConfigReader
 import pureconfig.generic.*
+import pureconfig.generic.semiauto.deriveReader
 
-sealed trait RelationConfig derives ConfigReader:
+sealed trait RelationConfig:
     def relFrom: (ChannelName, MessageFormatName)
     def relTo: (ChannelName, MessageFormatName)
     def refFromManyToOnePath: JsonPath
 
 object RelationConfig:
     given FieldCoproductHint[RelationConfig] = FieldCoproductHint[RelationConfig]("type")
+    given ConfigReader[RelationConfig] = deriveReader[RelationConfig]
 
 given ConfigReader[(ChannelName, MessageFormatName)] =
     ConfigReader[String].map: c2mStr =>
