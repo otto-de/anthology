@@ -20,6 +20,7 @@ trait StateStore:
 
     def putJson(key: String, value: JsonNode): Unit = put(key, mapper.writeValueAsBytes(value))
 
+    // Default implementation, does no batching at all
     def writeBatch(operations: Seq[StateStore.BatchOperation]): Unit =
         operations.foreach:
             case StateStore.BatchOperation.Put(key, value) => put(key, value)
@@ -45,9 +46,10 @@ trait StateStore:
         putStringSet(key, newSet)
 
     def addStringsToSet(key: String, elems: Set[String]): Unit =
-        val oldSet: Set[String] = getStringSet(key)
-        val newSet = oldSet ++ elems
-        putStringSet(key, newSet)
+        if elems.nonEmpty then
+            val oldSet: Set[String] = getStringSet(key)
+            val newSet = oldSet ++ elems
+            putStringSet(key, newSet)
 
     def removeStringFromSet(key: String, elem: String): Unit =
         val oldSet: Set[String] = getStringSet(key)
@@ -55,9 +57,10 @@ trait StateStore:
         putStringSet(key, newSet)
 
     def removeStringsFromSet(key: String, elems: Set[String]): Unit =
-        val oldSet: Set[String] = getStringSet(key)
-        val newSet = oldSet -- elems
-        putStringSet(key, newSet)
+        if elems.nonEmpty then
+            val oldSet: Set[String] = getStringSet(key)
+            val newSet = oldSet -- elems
+            putStringSet(key, newSet)
 
 object StateStore:
 

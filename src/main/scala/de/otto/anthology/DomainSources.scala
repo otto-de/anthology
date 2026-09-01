@@ -1,7 +1,7 @@
 package de.otto.anthology
 
 import de.otto.anthology.MergeStage.*
-import de.otto.anthology.SimpleLoggingCounterStage.count
+import de.otto.anthology.SimpleThroughputLoggingStage.logThroughput
 import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.kafka.ConsumerMap
 import de.otto.anthology.kafka.ConsumerName
@@ -14,14 +14,17 @@ object DomainSources:
 
     def apply(
         configs: ChannelConfigs,
-        consumers: ConsumerMap
+        consumers: ConsumerMap,
+        logThroughput: Option[Boolean]
     )(using Ox): Flow[(Option[(QualifiedMessageId, Option[Message])], Passthrough)] =
         configs.channels
             .map: config =>
                 // for now we go with consumer name == domain name
                 val consumerName = ConsumerName(config.name.toString)
-                DomainSource(
+                val src = DomainSource(
                     config,
                     KafkaSourceSettings(config.kafka, consumerName, consumers(consumerName))
-                ).count(s"domain source ${config.name.toString}")
+                )
+                src.logThroughput(s"domain source ${config.name.toString}", logThroughput)
             .mergeFair()
+            .logThroughput("domain sources total", logThroughput)

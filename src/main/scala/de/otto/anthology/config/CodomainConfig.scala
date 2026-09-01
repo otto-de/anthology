@@ -14,7 +14,8 @@ case class CodomainConfig(
     transformation: Option[CodomainTransformationConfig],
     headerPropagation: Option[Seq[HeaderPropagationConfig]],
     kafka: KafkaSinkConfig,
-    logSentMessages: Option[Boolean]
+    logSentMessages: Option[Boolean],
+    logThroughput: Option[Boolean]
 ) derives ConfigReader:
     def headerPropagationConfigs: Option[HeaderPropagationConfigs] =
         headerPropagation.fold(None): hp =>

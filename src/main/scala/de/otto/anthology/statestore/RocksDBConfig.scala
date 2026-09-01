@@ -9,11 +9,12 @@ import pureconfig.generic.semiauto.deriveReader
 // see https://github.com/pureconfig/pureconfig/issues/1673
 
 case class RocksDBConfig(
-    cacheSizeMb: Long = 256,
-    writeBufferSizeMb: Long = 64,
+    cacheSizeMb: Long = 0L,
+    writeBufferSizeMb: Long = 0L,
     bestEffortsRecovery: Boolean = true
 ):
-    assert(writeBufferSizeMb < cacheSizeMb)
+    assert:
+        (cacheSizeMb > 0L && writeBufferSizeMb > 0L && cacheSizeMb > writeBufferSizeMb) || (cacheSizeMb == 0L && writeBufferSizeMb == 0L)
 
 object RocksDBConfig:
     given ConfigReader[RocksDBConfig] = deriveReader[RocksDBConfig]

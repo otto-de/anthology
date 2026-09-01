@@ -1,5 +1,7 @@
 package de.otto.anthology
 
+import de.otto.anthology.config.AdditionalKafkaProperty
+import de.otto.anthology.config.asMap
 import de.otto.anthology.kafka.ClusterName
 import de.otto.anthology.kafka.Consumer
 import de.otto.anthology.kafka.ConsumerName
@@ -19,8 +21,11 @@ object KafkaSource:
 case class KafkaSourceConfig(
     cluster: ClusterName,
     topic: TopicName,
-    consumerGroup: String
-) derives ConfigReader
+    consumerGroup: String,
+    additionalConsumerProperties: Option[Seq[AdditionalKafkaProperty]]
+) derives ConfigReader:
+    def additionalConsumerPropertiesAsMap: Map[String, String] =
+        additionalConsumerProperties.getOrElse(Seq.empty).asMap
 
 case class KafkaSourceSettings(
     config: KafkaSourceConfig,

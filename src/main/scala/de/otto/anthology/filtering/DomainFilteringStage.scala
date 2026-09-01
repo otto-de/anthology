@@ -7,6 +7,7 @@ import de.otto.anthology.Message
 import de.otto.anthology.MessageFormatName
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.config.jsonPathConfigReader
 import de.otto.anthology.kafka.Passthrough
@@ -28,24 +29,25 @@ object DomainFilteringStage extends LazyLogging:
                     msgConfig.filtering.map(fc => (chanName2msgName, FilterChain(fc.filterPaths)))
 
             in.mapPar(parallelism.toInt):
-                case (None, pass) =>
-                    (None, pass)
+                measureMap("DomainFiltering"):
+                    case (None, pass) =>
+                        (None, pass)
 
-                case (Some(qmid, messageOpt), pass) =>
-                    try
-                        val chainOpt = chains.get((qmid.channelName, qmid.messageName))
-                        val filteredDomainMessage =
-                            chainOpt match
-                                case Some(chain) =>
-                                    chain(messageOpt)
-                                case None =>
-                                    messageOpt
-                        (Some(qmid, filteredDomainMessage), pass)
-                    catch
-                        case NonFatal(ex) =>
-                            logger.error(
-                                s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
-                            )
-                            (None, pass)
+                    case (Some(qmid, messageOpt), pass) =>
+                        try
+                            val chainOpt = chains.get((qmid.channelName, qmid.messageName))
+                            val filteredDomainMessage =
+                                chainOpt match
+                                    case Some(chain) =>
+                                        chain(messageOpt)
+                                    case None =>
+                                        messageOpt
+                            (Some(qmid, filteredDomainMessage), pass)
+                        catch
+                            case NonFatal(ex) =>
+                                logger.error(
+                                    s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
+                                )
+                                (None, pass)
 
 case class DomainFilteringConfig(filterPaths: Seq[JsonPath]) derives ConfigReader

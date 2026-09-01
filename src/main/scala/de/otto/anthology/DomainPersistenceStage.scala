@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.Message
 import de.otto.anthology.MessageId
 import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -20,28 +21,31 @@ object DomainPersistenceStage extends LazyLogging:
         /** Persists incoming domain messages in the [[anthology.statestore.StateStore]]. A missing messages will be
           * treated as a deletion and removed from StateStore.
           */
-        def persistDomainMessages(stateStore: StateStore): Flow[(Option[QualifiedMessageId], Passthrough)] =
+        def persistDomainMessages(
+            stateStore: StateStore
+        ): Flow[(Option[QualifiedMessageId], Passthrough)] =
             in.map:
-                case (None, pass) =>
-                    (None, pass)
-                case (Some(qmid, messageOpt), pass) =>
-                    try
-                        validateMessageId(qmid.id)
-                        val messageKey: String = s"${StateStoreSection.DOM}/$qmid"
-                        messageOpt match
-                            case Some(message) =>
-                                stateStore.putJson(messageKey, message.toJson)
-                            case None =>
-                                stateStore.delete(messageKey)
-                        (Some(qmid), pass)
-                    catch
-                        case e: RocksDBException =>
-                            throw e
-                        case NonFatal(ex) =>
-                            logger.error(
-                                s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
-                            )
-                            (None, pass)
+                measureMap("DomainPersistence"):
+                    case (None, pass) =>
+                        (None, pass)
+                    case (Some(qmid, messageOpt), pass) =>
+                        try
+                            validateMessageId(qmid.id)
+                            val messageKey: String = s"${StateStoreSection.DOM}/$qmid"
+                            messageOpt match
+                                case Some(message) =>
+                                    stateStore.putJson(messageKey, message.toJson)
+                                case None =>
+                                    stateStore.delete(messageKey)
+                            (Some(qmid), pass)
+                        catch
+                            case e: RocksDBException =>
+                                throw e
+                            case NonFatal(ex) =>
+                                logger.error(
+                                    s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
+                                )
+                                (None, pass)
 
     private def validateMessageId(aid: MessageId): Unit =
         if aid.toString.contains(StateStore.ELEMENT_SEPARATOR) then

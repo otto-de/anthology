@@ -1,7 +1,6 @@
 package de.otto.anthology.config
 
 import com.typesafe.scalalogging.LazyLogging
-import de.otto.anthology.Parallelism
 import de.otto.anthology.statestore.RocksDBConfig
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.deriveReader
@@ -22,7 +21,7 @@ object AnthologyConfigFactory extends LazyLogging:
         logger.info("Loading Anthology configuration")
         val path: Path =
             cliPath
-                .orElse(sys.env.get("ANTHOLOGY_CONFIG_FILE"))
+                .orElse(sys.env.get(AppArgs.CONFIG_FILE_ENV_VAR))
                 .map(Paths.get(_))
                 .getOrElse(resourcePath("application.yaml"))
         logger.info(s"loading config from $path")
@@ -37,8 +36,7 @@ case class AnthologyConfig(
     domain: DomainConfig,
     codomain: CodomainConfig,
     kafkaClusters: Seq[KafkaClusterConfig],
-    rocksDB: RocksDBConfig = RocksDBConfig(),
-    parallelism: Parallelism = Parallelism(1)
+    rocksDB: RocksDBConfig = RocksDBConfig()
 )
 
 object AnthologyConfig:

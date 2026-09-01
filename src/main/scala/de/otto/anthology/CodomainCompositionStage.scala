@@ -8,6 +8,7 @@ import de.otto.anthology.JsonSupport.mapper
 import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
 import de.otto.anthology.statestore.StateStoreSection
@@ -20,30 +21,33 @@ import scala.util.control.NonFatal
 object CodomainCompositionStage extends LazyLogging:
 
     extension (in: Flow[(Seq[(QualifiedMessageId, Seq[MessageId])], Seq[Passthrough])])
-        def composeCodomainMessages(stateStore: StateStore): Flow[(Seq[MessageId], Seq[Passthrough])] =
-            in.map: (payloads, passthroughs) =>
-                val payloadsOut: Seq[MessageId] =
-                    payloads.flatMap: (qmid, codomainMessageIds) =>
-                        codomainMessageIds.flatMap: codomainMessageId =>
-                            try
-                                val codomainKey = s"${StateStoreSection.STA}/$codomainMessageId"
-                                val codomainMessage: ObjectNode =
-                                    stateStore
-                                        .getJson(codomainKey)
-                                        .fold(mapper.createObjectNode())(_.asInstanceOf[ObjectNode])
-                                compose(qmid, codomainMessage, stateStore)
-                                if codomainMessage.isEmpty then stateStore.delete(codomainKey)
-                                else stateStore.putJson(codomainKey, codomainMessage)
-                                Some(codomainMessageId)
-                            catch
-                                case e: RocksDBException =>
-                                    throw e
-                                case NonFatal(ex) =>
-                                    logger.error(
-                                        s"Error processing domain message ($qmid) and codomain message ($codomainMessageId): ${ex.stackTraceAsString}"
-                                    )
-                                    None
-                (payloadsOut.distinct, passthroughs)
+        def composeCodomainMessages(
+            stateStore: StateStore
+        ): Flow[(Seq[MessageId], Seq[Passthrough])] =
+            in.map:
+                measureMap("CodomainComposition"): (payloads, passthroughs) =>
+                    val payloadsOut: Seq[MessageId] =
+                        payloads.flatMap: (qmid, codomainMessageIds) =>
+                            codomainMessageIds.flatMap: codomainMessageId =>
+                                try
+                                    val codomainKey = s"${StateStoreSection.STA}/$codomainMessageId"
+                                    val codomainMessage: ObjectNode =
+                                        stateStore
+                                            .getJson(codomainKey)
+                                            .fold(mapper.createObjectNode())(_.asInstanceOf[ObjectNode])
+                                    compose(qmid, codomainMessage, stateStore)
+                                    if codomainMessage.isEmpty then stateStore.delete(codomainKey)
+                                    else stateStore.putJson(codomainKey, codomainMessage)
+                                    Some(codomainMessageId)
+                                catch
+                                    case e: RocksDBException =>
+                                        throw e
+                                    case NonFatal(ex) =>
+                                        logger.error(
+                                            s"Error processing domain message ($qmid) and codomain message ($codomainMessageId): ${ex.stackTraceAsString}"
+                                        )
+                                        None
+                    (payloadsOut.distinct, passthroughs)
 
     private def compose(
         currentDomainMessageId: QualifiedMessageId,

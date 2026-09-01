@@ -49,7 +49,7 @@ class KafkaSourceTest extends AnyFlatSpec, Matchers, Diagrams, EmbeddedKafka, Be
                 .autoOffsetReset(AutoOffsetReset.Earliest)
 
         supervised:
-            val sourceConfig = KafkaSourceConfig(cluster, topic, group)
+            val sourceConfig = KafkaSourceConfig(cluster, topic, group, None)
             val consumerName = ConsumerName("consumer-a")
             val consumer = consumerSettings.toThreadSafeConsumerWrapper
             val sourceSettings = KafkaSourceSettings(sourceConfig, consumerName, consumer)

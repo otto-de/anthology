@@ -6,6 +6,7 @@ import de.otto.anthology.MessageFormatName
 import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
 import de.otto.anthology.QualifiedMessageId
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.config.RelationConfigs
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.statestore.StateStore
@@ -30,20 +31,21 @@ object CodomainTriggeringStage extends LazyLogging:
             parallelism: Parallelism = Parallelism(1)
         ): Flow[(Option[(QualifiedMessageId, Set[MessageId])], Passthrough)] =
             in.mapPar(parallelism.toInt):
-                case (None, pass) =>
-                    (None, pass)
-                case (Some(qmid), pass) =>
-                    try
-                        val rootIds = identifyAffected(qmid, config, stateStore)
-                        (Some(qmid, rootIds), pass)
-                    catch
-                        case e: RocksDBException =>
-                            throw e
-                        case NonFatal(ex) =>
-                            logger.error(
-                                s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
-                            )
-                            (None, pass)
+                measureMap("CodomainTriggering"):
+                    case (None, pass) =>
+                        (None, pass)
+                    case (Some(qmid), pass) =>
+                        try
+                            val rootIds = identifyAffected(qmid, config, stateStore)
+                            (Some(qmid, rootIds), pass)
+                        catch
+                            case e: RocksDBException =>
+                                throw e
+                            case NonFatal(ex) =>
+                                logger.error(
+                                    s"Error processing record (${pass.record.key}, ${pass.record.value}): ${ex.stackTraceAsString}"
+                                )
+                                (None, pass)
 
     private def identifyAffected(
         currentDomainMessageId: QualifiedMessageId,

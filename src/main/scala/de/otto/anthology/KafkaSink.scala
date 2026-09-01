@@ -2,7 +2,10 @@ package de.otto.anthology
 
 import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.BroadcastStage.broadcast
+import de.otto.anthology.SimpleThroughputLoggingStage.logThroughput
+import de.otto.anthology.config.AdditionalKafkaProperty
 import de.otto.anthology.config.KafkaClusterSettings
+import de.otto.anthology.config.asMap
 import de.otto.anthology.kafka.ClusterName
 import de.otto.anthology.kafka.ConsumerMap
 import de.otto.anthology.kafka.MessageIdSerializer
@@ -21,13 +24,16 @@ import ox.kafka.KafkaDrain
 import ox.kafka.ProducerSettings
 import pureconfig.ConfigReader
 
+import java.time.Duration
+import java.time.Instant
 import java.util.Collections
 
 object KafkaSink extends LazyLogging:
 
     extension (in: Flow[(Seq[(MessageId, Option[Message], Option[Headers])], Seq[Passthrough])])
         def emitCodomainMessages(settings: KafkaSinkSettings): Unit =
-            val additionalProps = settings.clusterSettings.additionalProperties
+            val additionalProps: Map[String, String] =
+                settings.clusterSettings.additionalProperties ++ settings.config.additionalProducerPropertiesAsMap
             val baseSettings: ProducerSettings[MessageId, Message] =
                 ProducerSettings.default
                     .bootstrapServers(settings.clusterSettings.config.bootstrapServers.split(",").map(_.trim)*)
@@ -93,22 +99,37 @@ object KafkaSink extends LazyLogging:
                                 logger.info(
                                     s"Sending codomain message id=${record.key}, msg=${record.value}"
                                 )
+                    .logThroughput("codomain sink", settings.logThroughput)
+                    .mapStateful(0): (cnt, p) =>
+                        if cnt % 1000 == 0 then
+                            p._2.headOption.foreach: pass =>
+                                val dur = Duration.between(pass.startTime, Instant.now).toMillis()
+                                logger.info(s"Sample e2e processing time: ${dur}ms")
+                        (cnt + 1, p)
                     .map: (producerRecords, offsets) =>
                         producerRecords.foreach(publishChannel.send)
                         offsets.foreach(committerChannel.send)
                     .mapStateful(0): (cnt, _) =>
-                        if cnt % 100 == 0 then
-                            logger.info("Published and committed 100 batches of codomain messages to Kafka")
+                        if cnt % 1000 == 0 then
+                            logger.info("Published and committed 1000 batches of codomain messages to Kafka")
                         (cnt + 1, ())
                     .runDrain()
 
                 (publishFork.join(), commitForkPerConsumer.join(), commitFork.join())
+        end emitCodomainMessages
 
-case class KafkaSinkConfig(cluster: ClusterName, topic: TopicName) derives ConfigReader
+case class KafkaSinkConfig(
+    cluster: ClusterName,
+    topic: TopicName,
+    additionalProducerProperties: Option[Seq[AdditionalKafkaProperty]]
+) derives ConfigReader:
+    def additionalProducerPropertiesAsMap: Map[String, String] =
+        additionalProducerProperties.getOrElse(Seq.empty).asMap
 
 case class KafkaSinkSettings(
     config: KafkaSinkConfig,
     clusterSettings: KafkaClusterSettings,
     consumers: ConsumerMap,
-    logSentMessages: Option[Boolean]
+    logSentMessages: Option[Boolean],
+    logThroughput: Option[Boolean]
 )

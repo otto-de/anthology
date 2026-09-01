@@ -22,7 +22,6 @@ import de.otto.anthology.transformation.CodomainTransformationStage.transformCod
 import de.otto.anthology.transformation.DomainTransformationStage.transformDomainMessageIds
 import de.otto.anthology.transformation.DomainTransformationStage.transformDomainMessages
 import ox.Ox
-import ox.channels.BufferCapacity
 
 object AppWorkflow:
 
@@ -44,39 +43,29 @@ object AppWorkflow:
         stateStore: StateStore,
         clusterSettings: Map[ClusterName, KafkaClusterSettings],
         kafkaConsumers: ConsumerMap,
-        parallelism: Parallelism
+        parallelism: Parallelism,
+        logDomainThroughput: Option[Boolean]
     )(using Ox): Unit =
-        DomainSources(channelConfigs, kafkaConsumers)
-            .buffer()
+        DomainSources(channelConfigs, kafkaConsumers, logDomainThroughput)
             .filterDomainMessages(channelConfigs, parallelism)
-            .buffer()
             .transformDomainMessageIds(channelConfigs)
-            .buffer()
             .transformDomainMessages(channelConfigs, parallelism)
-            .buffer()
             .persistDomainMessages(stateStore)
-            .buffer()
             .linkDomainMessages(relationConfigs, stateStore)
-            .buffer()
             .triggerAffectedCodomainMessages(relationConfigs, stateStore, parallelism)
             .deduplicateCodomainMessages(codomainConfig.deduplication)
             .composeCodomainMessages(stateStore)
-            .buffer()
             .inlineDomainMessages(relationConfigs, stateStore, parallelism)
-            .buffer()
             .filterCodomainMessages(codomainConfig.filtering, parallelism)
-            .buffer()
             .transformCodomainMessages(codomainConfig.transformation, parallelism)
-            .buffer()
-            .persistCodomainMessages(stateStore, parallelism)
-            .buffer()
+            .persistCodomainMessages(stateStore)
             .propagateHeaders(codomainConfig.headerPropagationConfigs)
-            .buffer()
             .emitCodomainMessages(
                 KafkaSinkSettings(
                     codomainConfig.kafka,
                     clusterSettings(codomainConfig.kafka.cluster),
                     kafkaConsumers,
-                    codomainConfig.logSentMessages
+                    codomainConfig.logSentMessages,
+                    logDomainThroughput
                 )
             )

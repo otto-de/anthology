@@ -5,6 +5,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.Message
 import de.otto.anthology.MessageId
 import de.otto.anthology.Parallelism
+import de.otto.anthology.SimpleProcessingTimeLogger.measureMap
 import de.otto.anthology.config.jsonPathConfigReader
 import de.otto.anthology.kafka.Passthrough
 import de.otto.anthology.util.ExceptionUtil.stackTraceAsString
@@ -21,16 +22,17 @@ object CodomainFilteringStage extends LazyLogging:
             parallelism: Parallelism = Parallelism(1)
         ): Flow[(Seq[(MessageId, Option[Message])], Seq[Passthrough])] =
             val chain: FilterChain = FilterChain(configOpt.map(_.filterPaths).getOrElse(Seq.empty))
-            in.mapPar(parallelism.toInt): (payloads, passthroughs) =>
-                val payloadsOut: Seq[(MessageId, Option[Message])] =
-                    payloads.map: (codomainMessageId, codomainMessage) =>
-                        try (codomainMessageId, chain(codomainMessage))
-                        catch
-                            case NonFatal(ex) =>
-                                logger.error(
-                                    s"Error filtering ($codomainMessageId, $codomainMessage): ${ex.stackTraceAsString}"
-                                )
-                                (codomainMessageId, None)
-                (payloadsOut, passthroughs)
+            in.mapPar(parallelism.toInt):
+                measureMap("CodomainFiltering"): (payloads, passthroughs) =>
+                    val payloadsOut: Seq[(MessageId, Option[Message])] =
+                        payloads.map: (codomainMessageId, codomainMessage) =>
+                            try (codomainMessageId, chain(codomainMessage))
+                            catch
+                                case NonFatal(ex) =>
+                                    logger.error(
+                                        s"Error filtering ($codomainMessageId, $codomainMessage): ${ex.stackTraceAsString}"
+                                    )
+                                    (codomainMessageId, None)
+                    (payloadsOut, passthroughs)
 
 case class CodomainFilteringConfig(filterPaths: Seq[JsonPath]) derives ConfigReader

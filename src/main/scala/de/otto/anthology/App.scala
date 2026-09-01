@@ -4,6 +4,7 @@ import com.typesafe.scalalogging.LazyLogging
 import de.otto.anthology.config.AdditionalKafkaPropertiesLoader
 import de.otto.anthology.config.AnthologyConfig
 import de.otto.anthology.config.AnthologyConfigFactory
+import de.otto.anthology.config.AppArgs
 import de.otto.anthology.config.ChannelConfigs
 import de.otto.anthology.config.CliConf
 import de.otto.anthology.config.CodomainConfig
@@ -56,8 +57,10 @@ object App extends OxApp, LazyLogging:
                     // Setup infra...
                     val cliConfig = CliConf(args)
 
+                    val cpuCount: Int = Runtime.getRuntime.availableProcessors()
+
                     val config: AnthologyConfig = AnthologyConfigFactory(cliConfig.anthologyConfigFile.toOption)
-                    logger.info(s"Starting ${config.name}...")
+                    logger.info(s"Starting ${config.name} with $cpuCount CPUs...")
 
                     val additionalKafkaProps: Map[ClusterName, Map[String, String]] =
                         AdditionalKafkaPropertiesLoader(cliConfig.anthologyAdditionalKafkaProperties.toOption)
@@ -74,7 +77,7 @@ object App extends OxApp, LazyLogging:
                     logger.info("Domain and codomain settings initialized successfully")
 
                     val dbPath: String =
-                        cliConfig.anthologyStateStorePath.getOrElse(sys.env("ANTHOLOGY_STATE_STORE_PATH"))
+                        cliConfig.anthologyStateStorePath.getOrElse(sys.env(AppArgs.STATE_STORE_PATH_ENV_VAR))
                     val dbConfig: RocksDBConfig = config.rocksDB
                     val store: StateStore =
                         useInScope(acquireRocksDbStateStore(dbConfig, dbPath))(releaseRocksDbStateStore)
@@ -84,7 +87,8 @@ object App extends OxApp, LazyLogging:
                         channelConfigs.channels
                             .map: dConfig =>
                                 val cluster = clusterSettings(dConfig.kafka.cluster)
-                                val additionalProps = cluster.additionalProperties
+                                val additionalProps =
+                                    cluster.additionalProperties ++ dConfig.kafka.additionalConsumerPropertiesAsMap
                                 val baseSettings: ConsumerSettings[MessageId, Option[Message]] =
                                     ConsumerSettings
                                         .default(dConfig.kafka.consumerGroup)
@@ -100,7 +104,7 @@ object App extends OxApp, LazyLogging:
                     logger.info("Kafka consumers initialized successfully")
 
                     // ...and run application
-                    logger.info(s"Starting processing with ${config.parallelism}x parallelism...")
+                    logger.info("Starting processing...")
                     def startHttpServer(): Unit = Server().start()
                     def startAppWorkflow(): Unit =
                         AppWorkflow.run(
@@ -110,7 +114,8 @@ object App extends OxApp, LazyLogging:
                             store,
                             clusterSettings,
                             kafkaConsumers,
-                            config.parallelism
+                            Parallelism(cpuCount),
+                            config.domain.logThroughput
                         )
                     par(startHttpServer(), startAppWorkflow()).discard
             ExitCode.Success
@@ -123,9 +128,7 @@ object App extends OxApp, LazyLogging:
                 ExitCode.Failure(1)
 
     private def acquireRocksDbStateStore(dbConfig: RocksDBConfig, dbPath: String): RocksDBStateStore =
-        logger.info("Acquiring RocksDBStateStore...")
         RocksDBStateStore(dbConfig, dbPath)
 
     private def releaseRocksDbStateStore(db: RocksDBStateStore): Unit =
-        logger.info("Releasing RocksDBStateStore...")
-        db.close()
+        db.shutdown()
