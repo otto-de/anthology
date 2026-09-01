@@ -2,7 +2,7 @@
 
 commons-io = "2.22.0"
 embeddedkafka = "4.3.0.1"
-jackson = "2.19.4"
+jackson = "2.22.2"
 jolt = "1.2.0"
 jsonpath = "3.0.0"
 junit = "3.2.19.0"
