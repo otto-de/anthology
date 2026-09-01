@@ -68,11 +68,6 @@ kafka-clusters:
   - Configuring certain settings for RocksDB, which is used as embedded database. 
   - optional
   - type: single object
-- attribute `parallelism`
-  - The level of concurrency at which the Anthology microservice is to run. 
-  - optional
-  - type: integer
-  - default: 1
 
 ### `domain`
 - subsection [`channels`](#domainchannels)  
@@ -85,6 +80,11 @@ kafka-clusters:
   - required
   - type: array of objects
   - Must contain at least one element
+- attribute `log-throughput`
+  - If activated, a simple per-minute throughput logging of the inbound message streams is activated. 
+  - optional
+  - type: boolean
+  - default: false
 
 ### `domain.channels`
 - attribute `name`
@@ -116,6 +116,20 @@ kafka-clusters:
   - Name of the consumer group that is to consume this topic. 
   - required
   - type: string
+- subsection [`additional-consumer-properties`](#domainchannelskafkaadditional-consumer-properties)
+  - Additional attributes that are passed directly to the Kafka consumer. 
+  - optional
+  - type: array of objects
+
+### `domain.channels.kafka.additional-consumer-properties`
+- attribute `name`
+  - Name of the Kafka consumer property. See [Kafka reference](https://kafka.apache.org/41/configuration/consumer-configs). 
+  - required
+  - type: string
+- attribute `value`
+  - Value of the Kafka consumer property. 
+  - required
+  - type: string
 
 ### `domain.channels.message-formats`
 - attribute `name`
@@ -129,6 +143,10 @@ kafka-clusters:
   - type: string (JSONPath)
   - If there is more than one message format in this channel, a recognition path must be specified. 
   - Unrecognised messages are silently ignored. 
+- attribute `id-extraction-path`
+  - By default, the Kafka record key (which may need to be [transformed](#domainchannelsmessage-formatsid-transformation)) is used as the message ID. However, if it is to be extracted from the _message content_, the relevant JSONPath can be specified here. 
+  - optional
+  - type: string (JSONPath)
 - subsection [`filtering`](#domainchannelsmessage-formatsfiltering)
   - Filtering of the received messages. It can be used to filter out or allow the entire message to pass through, or to extract a part of the message. 
   - optional
@@ -136,6 +154,10 @@ kafka-clusters:
 - subsection [`id-transformation`](#domainchannelsmessage-formatsid-transformation)
 - subsection [`transformation`](#domainchannelsmessage-formatstransformation)
 - attribute `log-received-messages`
+  - If activated, every received message will be printed to the log. 
+  - optional
+  - type: boolean
+  - default: false
 
 ### `domain.channels.message-formats.filtering`
 - attribute `filter-paths`
@@ -154,6 +176,11 @@ kafka-clusters:
 - attribute `rel-from`
 - attribute `rel-to`
 - attribute `ref-from-many-to-one-path`
+- attribute `omit-trigger-codomain`
+  - This attribute can only be set for relations of type 'many-to-one'. If activated, this ensures that triggering the codomain computation is omitted. That means, changes in the 'rel-to' messages do not trigger the computation of a codomain message. It may be important to use this option if the relation is _highly_ asymmetrical (with a _very large_ number of messages on the ‘many’ side). 
+  - optional
+  - type: boolean
+  - default: false
 
 ### `codomain`
 - subsection [`deduplication`](#codomaindeduplication)
@@ -162,6 +189,11 @@ kafka-clusters:
 - subsection [`header-propagation`](#codomainheader-propagation)
 - subsection [`kafka`](#codomainkafka)
 - attribute `log-sent-messages`
+- attribute `log-throughput`
+  - If activated, a simple per-minute throughput logging of the outbound message stream is activated. 
+  - optional
+  - type: boolean
+  - default: false
 
 ### `codomain.deduplication`
 - attribute `batch-size`
@@ -181,6 +213,20 @@ kafka-clusters:
 ### `codomain.kafka`
 - attribute `cluster`
 - attribute `topic`
+- subsection [`additional-producer-properties`](#codomainkafkaadditional-producer-properties)
+  - Additional attributes that are passed directly to the Kafka producer. 
+  - optional
+  - type: array of objects
+
+### `codomain.kafka.additional-producer-properties`
+- attribute `name`
+  - Name of the Kafka producer property. See [Kafka reference](https://kafka.apache.org/41/configuration/producer-configs/). 
+  - required
+  - type: string
+- attribute `value`
+  - Value of the Kafka producer property. 
+  - required
+  - type: string
 
 ### `kafka-clusters`
 - attribute `name`
