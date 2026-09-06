@@ -17,6 +17,6 @@ credentials.env
 
 # Ignore IntelliJ IDEA project files
 .idea
-anthology.iml
-anthology.ipr
-anthology.iws
+capella.iml
+capella.ipr
+capella.iws

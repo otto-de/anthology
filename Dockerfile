@@ -15,34 +15,34 @@ RUN ./gradlew installDist --no-daemon --quiet -x test
 FROM eclipse-temurin:25-jre-alpine AS runtime
 
 # Run as a non-root user
-RUN adduser -D -H -s /sbin/nologin anthology \
-    && mkdir /config && chown anthology:anthology /config
+RUN adduser -D -H -s /sbin/nologin capella \
+    && mkdir /config && chown capella:capella /config
 
 RUN apk add --no-cache libstdc++
 
-USER anthology
+USER capella
 
 WORKDIR /app
 
-COPY --from=build --chown=anthology:anthology /build/build/install/anthology/ .
+COPY --from=build --chown=capella:capella /build/build/install/capella/ .
 
 # Bake domain config into the image at build time.
 # Provide a config/ directory in the build context containing:
 #   - application.yaml
 #   - any transform JSON files referenced in application.yaml
 #
-#  Pass ANTHOLOGY_ADDITIONAL_KAFKA_PROPERTIES at runtime:
-#   docker run -e ANTHOLOGY_ADDITIONAL_KAFKA_PROPERTIES='{"cluster-a":{"username":"...","password":"..."}}' ...
-COPY --chown=anthology:anthology config/ /config/
+#  Pass CAPELLA_ADDITIONAL_KAFKA_PROPERTIES at runtime:
+#   docker run -e CAPELLA_ADDITIONAL_KAFKA_PROPERTIES='{"cluster-a":{"username":"...","password":"..."}}' ...
+COPY --chown=capella:capella config/ /config/
 
 # Sensible defaults for JVM options
 ENV JAVA_OPTS="-XX:InitialRAMPercentage=50 -XX:MaxRAMPercentage=50 -XX:+UseZGC -XX:+ExitOnOutOfMemoryError"
 
-ENV ANTHOLOGY_CONFIG_FILE=/config/application.yaml
+ENV CAPELLA_CONFIG_FILE=/config/application.yaml
 
 # State store — /data must be mounted to a persistent volume at runtime.
-# Override ANTHOLOGY_STATE_STORE_PATH if you mount to a different path.
-ENV ANTHOLOGY_STATE_STORE_PATH=/data/rocksdb
+# Override CAPELLA_STATE_STORE_PATH if you mount to a different path.
+ENV CAPELLA_STATE_STORE_PATH=/data/rocksdb
 VOLUME /data
 
-ENTRYPOINT ["bin/anthology"]
+ENTRYPOINT ["bin/capella"]
