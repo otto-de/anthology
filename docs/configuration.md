@@ -1,4 +1,4 @@
-# Configure Anthology
+# Configure Capella
 
 ## Environment variables
 
@@ -9,7 +9,7 @@ Most of the configuration is carried out via the main application configuration 
 
 To give a basic idea of the file structure, a minimal configuration (taken from the end-to-end test) is shown here:
 ```yaml
-name: Anthology-E2E
+name: Capella-E2E
 
 domain:
   channels:
@@ -48,11 +48,11 @@ kafka-clusters:
 
 ### The top level
 - attribute `name`
-  - Name of your Anthology deployment. It is used for descriptive purposes, e.g. in log messages. 
+  - Name of your Capella deployment. It is used for descriptive purposes, e.g. in log messages. 
   - required
   - type: string
 - subsection [`domain`](#domain)
-  - In principle, Anthology maps a domain to a codomain. The domain section therefore explains how to configure the data retrieval and how the source data are related to one another. 
+  - In principle, Capella maps a domain to a codomain. The domain section therefore explains how to configure the data retrieval and how the source data are related to one another. 
   - required
   - type: single object
 - subsection [`codomain`](#codomain)
@@ -60,7 +60,7 @@ kafka-clusters:
   - required
   - type: single object
 - subsection [`kafka-clusters`](#kafka-clusters)
-  - An Antholoy instance can communicate with multiple Kafka clusters, both to consume and to produce messages. Each of these clusters must be declared here. 
+  - A Capella instance can communicate with multiple Kafka clusters, both to consume and to produce messages. Each of these clusters must be declared here. 
   - required
   - type: array of objects
   - Must contain at least one element
@@ -71,7 +71,7 @@ kafka-clusters:
 
 ### `domain`
 - subsection [`channels`](#domainchannels)  
-  - Channels are the origin of the data to be aggregated. At present, and for as long as Anthology is limited to Kafka, a channel corresponds to a Kafka topic. 
+  - Channels are the origin of the data to be aggregated. At present, and for as long as Capella is limited to Kafka, a channel corresponds to a Kafka topic. 
   - required
   - type: array of objects
   - Must contain at least one element. 
@@ -97,7 +97,7 @@ kafka-clusters:
   - required
   - type: single object
 - subsection [`message-formats`](#domainchannelsmessage-formats)
-  - As Anthology can handle different message formats for each channel, this section sets out how each message format should be processed. 
+  - As Capella can handle different message formats for each channel, this section sets out how each message format should be processed. 
   - required
   - type: array of objects
   - Must contain at least one element. In total, at least two message formats must be declared in order to perform an aggregation; that is, either two channels, each with one message format, or one channel with two message formats. 
@@ -304,7 +304,7 @@ kafka-clusters:
 
 ### `kafka-clusters`
 - attribute `name`
-  - Name of the Kafka cluster, used for reference within the Anthology configuration. 
+  - Name of the Kafka cluster, used for reference within the Capella configuration. 
   - required
   - type: string
 - attribute `bootstrap-servers`

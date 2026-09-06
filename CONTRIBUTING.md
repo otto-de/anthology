@@ -1,6 +1,6 @@
-# Contributing to Anthology
+# Contributing to Capella
 
-**Thank you for your interest in Anthology. Your contributions are highly welcome.**
+**Thank you for your interest in Capella. Your contributions are highly welcome.**
 
 There are multiple ways of getting involved:
 
